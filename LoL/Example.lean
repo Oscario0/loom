@@ -1,0 +1,132 @@
+import LoL.MProp.HoareTriples
+import LoL.Meta
+import LoL.Tactic
+
+abbrev myM := StateT Nat (ExceptT String Id)
+
+
+lemma monadMap_if {α : Type} {m n} [inst: MonadLiftT m n] (t e : m α) (p : Prop) [Decidable p] :
+  monadLift (n:= n) (if p then t else e) = if p then monadLift t else monadLift e := by split <;> rfl
+
+@[wpSimp]
+lemma if_app {α β} p [Decidable p] (t e : α -> β)  : (if p then t else e) = fun x => if p then t x else e x := by
+  split <;> rfl
+@[wpSimp]
+lemma bindE {α β} : bind (α := α) (β := β) (m := Cont (Nat -> Prop)) = (fun x f g ↦ x fun a ↦ f a g) := by rfl
+
+#check Lean.Elab.Tactic.evalTactic
+
+    -- Lean.Elab.Tactic.evalTactic `(tactic| (
+    --   unfold Function.comp; dsimp
+    --   rw [MProp.μ_lift]; simp only [MProp.μ_pure];
+    --   unfold liftM; simp only [monadMapBind, monadMap_if]; simp only [monadLift]
+    --   ))
+
+namespace myM
+open TotalCorrectness
+
+#gen_spec getE for MProp.lift (m := myM) (get (m := myM))
+#gen_spec setE (s : Nat) for MProp.lift <| set (m := myM) s
+#gen_spec throwE (α : Type) (e : String) for MProp.lift (m := myM) (throw (α := α) (m := myM) e)
+#gen_spec pureE (α : Type) (x : α) for MProp.lift (m := myM) (pure (f := myM) x)
+#gen_spec MProp.μ_pure for MProp.μ (m := myM) ∘ pure
+
+def decr (n : Nat) : myM Unit := do
+  let s <- get
+  if n > s then throw "error"
+  set (s - n)
+
+lemma decr_spec (n sOld : Nat) :
+  triple
+    do { let s <- get; return n <= s ∧ s = sOld }
+    (decr n)
+    fun _ => do { let s <- get; return s + n = sOld } := by
+    -- prepare the goal
+    simp only [triple, decr];
+    -- propagate the lifting into Specification monad
+    simp_lift myM
+    -- simplify basic monadic operations
+    simp [wpSimp, bindE, if_app]
+    -- simplify logic implication
+    intros s; simp
+
+    -- actual proof
+    omega
+
+
+end myM
+
+export myM (decr)
+
+namespace myMPart
+open PartialCorrectness
+
+#gen_spec getE for MProp.lift (m := myM) (get (m := myM))
+#gen_spec setE (s : Nat) for MProp.lift <| set (m := myM) s
+#gen_spec throwE (α : Type) (e : String) for MProp.lift (m := myM) (throw (α := α) (m := myM) e)
+#gen_spec pureE (α : Type) (x : α) for MProp.lift (m := myM) (pure (f := myM) x)
+#gen_spec MProp.μ_pure for MProp.μ (m := myM) ∘ pure
+
+lemma decr_spec (n s : Nat) :
+  triple
+    do { return (<- get) = s }
+    (decr n)
+    fun _ => do { return (<- get) <= s } := by
+    -- prepare the goal
+    simp only [triple, decr]
+    -- propagate the lifting into Specification monad
+    simp_lift myM
+    -- simplify basic monadic operations
+    simp [wpSimp]
+    -- simplify logic implication
+    intros s; simp
+
+    -- actual proof
+    omega
+
+end myMPart
+
+open TotalCorrectness
+open DemonicChoice
+
+abbrev myM' := StateT Nat (ExceptT String NonDetM)
+
+
+#gen_spec getE for MProp.lift (m := myM') (get (m := myM'))
+#gen_spec setE (s : Nat) for MProp.lift (m := myM') (set (m := myM') s)
+#gen_spec throwE (α : Type) (e : String) for MProp.lift (m := myM') (throw (α := α) (m := myM') e)
+#gen_spec pureE (α : Type) (x : α) for MProp.lift (m := myM') (pure (f := myM') x)
+#gen_spec MProp.μ_pure for MProp.μ (m := myM') ∘ pure
+
+#gen_spec moreE (α : Type) (x : α) (m : NonDetM α) for MProp.lift (m := myM') <| (StateT.lift $ ExceptT.lift $ NonDetM.more x (fun _ => m))
+#gen_spec noneE (α : Type) for MProp.lift (m := myM') <| (StateT.lift $ ExceptT.lift $ NonDetM.none (α := α))
+#gen_spec chooseEE (α : Type) (xs : List α) for MProp.lift <| choose (m := myM') xs
+@[wpSimp high]
+lemma chooseE {α} (xs : List α) : (MProp.lift <| choose (m := myM') xs) = fun f s => ∀ x ∈ xs, f x s := by
+  induction xs <;> simp [choose, NonDetM.choose]
+  { rfl }
+  erw [moreE]; simp; ext f s; simp; intros h
+  rename_i ih; simp [funext_iff] at ih; rw [<-ih]; rw [chooseEE]
+
+def decr' (n : Nat) : myM' Unit := do
+  let n <- choose <| List.range <| n + 1
+  let s <- get
+  if n > s then throw "error"
+  set (s - n)
+
+lemma decr_spec (n s : Nat) :
+  triple
+    do { return (<- get) = s ∧ n <= s }
+    (decr' n)
+    fun _ => do { return (<- get) <= s } := by
+    -- prepare the goal
+    simp only [triple, decr']
+    -- propagate the lifting into Specification monad
+    simp_lift myM'
+    -- simplify basic monadic operations
+    simp [wpSimp]
+    -- simplify logic implication
+    intros s; simp
+
+    -- actual proof
+    omega
