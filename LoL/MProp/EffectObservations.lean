@@ -1,3 +1,4 @@
+import Mathlib.Order.Lattice
 import LoL.MonadUtil
 import LoL.SpecMonad
 
@@ -20,16 +21,16 @@ instance : Coe PProp Prop where
 
 class MProp [Monad m] (l : outParam (Type v)) where
   μ : m PProp -> l
-  μSur : { ι : l -> m PProp // μ.LeftInverse ι }
+  μ_surjective : { ι : l -> m PProp // μ.LeftInverse ι }
   bind : ∀ {α : Type v} (x : m α) (f g : α -> m PProp),
     μ ∘ f = μ ∘ g ->
     μ (x >>= f) = μ (x >>= g)
 
 def MProp.ι {m} {l : Type u} [Monad m] [MProp m l] : l -> m PProp :=
-  μSur.val
+  μ_surjective.val
 
 lemma MProp.cancel {m} {l : Type u} [Monad m] [MProp m l] (x : l) : μ (MProp.ι (m := m) x) = x :=
-  μSur.property x
+  μ_surjective.property x
 
 lemma MProp.cancelM {l} [Monad m] [MProp m l] {α : Type v} (x : m α) (f : _ -> _) :
     μ (x >>= MProp.ι ∘ μ ∘ f) = μ (x >>= f) := by
@@ -54,35 +55,51 @@ instance (l : Type u) {m : Type u -> Type v} [Monad m] [LawfulMonad m] [MProp m 
 
 
 class MPropOrdered (l : outParam (Type v)) [Monad m] [Preorder l] extends MProp m l where
-  μOrd {α : Type v} :
+  μ_ord_bind {α : Type v} :
     ∀ (f g : α -> m PProp), μ ∘ f <= μ ∘ g -> (μ $ · >>= f) ≤ (μ $ · >>= g)
 
 lemma Cont.monotone_lift {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Preorder l] [MPropOrdered m l] :
   ∀ {α : Type u} (x : m α), MProp.lift x |>.monotone := by
   unfold Cont.monotone; intros; simp [MProp.lift]
-  apply MPropOrdered.μOrd; intro; simp [MProp.cancel, *]
+  apply MPropOrdered.μ_ord_bind; intro; simp [MProp.cancel, *]
 
 class MPropPartialOrder (l : outParam (Type v)) [Monad m] [PartialOrder l] where
   μ : m PProp -> l
-  μSur : { ι : l -> m PProp // μ.LeftInverse ι }
-  μOrd {α : Type v} :
-    ∀ (f g : α -> m PProp), μ ∘ f ≤ μ ∘ g -> (μ $ · >>= f) ≤ (μ $ · >>= g)
+  μ_surjective : { ι : l -> m PProp // μ.LeftInverse ι }
+  μ_top (x : l) : x <= μ (pure True)
+  μ_bot (x : l) : μ (pure False) <= x
+  μ_ord_pure (p₁ p₂ : Prop) : (p₁ -> p₂) -> μ (pure p₁) ≤ μ (pure p₂)
+  μ_ord_bind {α : Type v} :
+    ∀ (f g : α -> m PProp), μ ∘ f ≤ μ ∘ g ->
+      ∀ x : m α, μ (x >>= f) ≤ μ (x >>= g)
 
-instance OfMPropPartialOrdered {m : Type -> Type} {l : Type} [Monad m] [PartialOrder l] [MPropPartialOrder m l] : MPropOrdered m l where
+instance OfMPropPartialOrdered {m : Type u -> Type v} {l : Type u} [Monad m] [PartialOrder l] [MPropPartialOrder m l] : MPropOrdered m l where
   μ := MPropPartialOrder.μ
-  μSur := MPropPartialOrder.μSur
-  μOrd := MPropPartialOrder.μOrd
-  bind := by intros; apply PartialOrder.le_antisymm <;> apply MPropPartialOrder.μOrd <;> simp_all only [le_refl]
+  μ_surjective := MPropPartialOrder.μ_surjective
+  μ_ord_bind := MPropPartialOrder.μ_ord_bind
+  bind := by intros; apply PartialOrder.le_antisymm
+    <;> apply MPropPartialOrder.μ_ord_bind
+    <;> simp_all only [le_refl]
+
+abbrev MProp.pure {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Preorder l] [MPropOrdered m l]
+  := MProp.μ ∘ Pure.pure (f := m)
+
+notation "⌜" p "⌝" => MProp.pure p
+
+lemma MProp.pure_imp {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m]
+  [PartialOrder l] [MPropPartialOrder m l]
+  (p₁ p₂ : Prop) : (p₁ -> p₂) -> MProp.pure (m := m) p₁ <= MProp.pure (m := m) p₂ := by
+  apply MPropPartialOrder.μ_ord_pure
 
 lemma MProp.μ_lift {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Preorder l] [MPropOrdered m l] :
-  MProp.μ (m := m) = (liftM (n := Cont l) · (MProp.μ ∘ pure (f := m))) := by
+  MProp.μ (m := m) = (liftM (n := Cont l) · (MProp.pure (m := m))) := by
   funext x; simp [liftM, monadLift, MProp.lift, Function.comp]
-  rw [MProp.bind (g := pure)]; simp
+  rw [MProp.bind (g := Pure.pure)]; simp
   ext; simp [MProp.cancel]
 
 lemma MProp.lift_bind {α β} {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Preorder l] [MPropOrdered m l]
-  (h) (x : m α) (f g : α -> Cont l β) :
+  (x : m α) (f g : α -> Cont l β) :
     f <= g ->
-    (lift x >>= f) h ≤ (lift x >>= g) h := by
-    intro fLg; simp [Bind.bind]
+    (lift x >>= f) ≤ (lift x >>= g) := by
+    intro fLg h; simp [Bind.bind]
     apply Cont.monotone_lift; intros h; apply fLg

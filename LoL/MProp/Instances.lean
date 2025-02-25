@@ -5,21 +5,29 @@ instance : Nonempty PProp := ⟨PProp.mk True⟩
 
 instance : MPropPartialOrder Id Prop where
   μ := (·.prop)
-  μSur := by exists (fun x => PProp.mk x); simp [Function.LeftInverse]
-  μOrd := by solve_by_elim
+  μ_surjective := by exists (fun x => PProp.mk x); simp [Function.LeftInverse]
+  μ_top := by simp
+  μ_bot := by simp
+  μ_ord_pure := by simp
+  μ_ord_bind := by solve_by_elim
 
 instance (σ : Type) (l : Type) (m : Type -> Type)
   [PartialOrder l]
   [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (StateT σ m) (σ -> l) where
   μ := fun sp s => Prod.fst <$> sp s |> inst.μ
-  μSur := by
+  μ_top := by intros x s; simp [pure, StateT.pure]; apply inst.μ_top
+  μ_bot := by intros x s; simp [pure, StateT.pure]; apply inst.μ_bot
+  μ_surjective := by
     exists fun sp s => (·, s) <$> MProp.ι (sp s)
     intro x; simp [funext_iff];
-    intro s; apply inst.μSur.property
-  μOrd := by
+    intro s; apply inst.μ_surjective.property
+  μ_ord_pure := by
+    intros p₁ p₂ imp s; simp [pure, StateT.pure]
+    solve_by_elim [MPropPartialOrder.μ_ord_pure]
+  μ_ord_bind := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x s
-    have leM := @inst.μOrd (α × σ) (fun as => Prod.fst <$> f as.1 as.2) (fun as => Prod.fst <$> g as.1 as.2)
+    have leM := @inst.μ_ord_bind (α × σ) (fun as => Prod.fst <$> f as.1 as.2) (fun as => Prod.fst <$> g as.1 as.2)
     simp only [Function.comp, Pi.hasLe, <-map_bind] at leM
     apply leM; simp only [implies_true, le]
 
@@ -27,14 +35,19 @@ instance (ρ : Type) (l : Type) (m : Type -> Type)
   [PartialOrder l]
   [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ReaderT ρ m) (ρ -> l) where
   μ := fun rp r => rp r |> inst.μ
-  μSur := by
+  μ_surjective := by
     exists fun rp r => MProp.ι (rp r)
     intro x; simp [funext_iff];
-    intro r; apply inst.μSur.property
-  μOrd := by
+    intro r; apply inst.μ_surjective.property
+  μ_top := by intros x s; simp [pure]; apply inst.μ_top
+  μ_bot := by intros x s; simp [pure]; apply inst.μ_bot
+  μ_ord_pure := by
+    intros p₁ p₂ imp s; simp [pure]
+    solve_by_elim [MPropPartialOrder.μ_ord_pure]
+  μ_ord_bind := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x r
-    have leM := @inst.μOrd α (f · r) (g · r)
+    have leM := @inst.μ_ord_bind α (f · r) (g · r)
     simp only [Function.comp, Pi.hasLe, <-map_bind] at leM
     apply leM; simp only [implies_true, le]
 
@@ -54,13 +67,18 @@ def MPropExcept (df : Prop) (ε : Type) (l : Type) (m : Type -> Type)
   [PartialOrder l]
   [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ExceptT ε m) l where
   μ := fun e => inst.μ $ Except.getD df <$> e
-  μSur := by
+  μ_top := by intros x; simp [pure, ExceptT.pure, ExceptT.mk]; apply inst.μ_top
+  μ_bot := by intros x; simp [pure, ExceptT.pure, ExceptT.mk]; apply inst.μ_bot
+  μ_surjective := by
     exists fun x => Functor.map (β := Except _ _) .ok (MProp.ι x)
-    intro x; simp [funext_iff]; apply inst.μSur.property
-  μOrd := by
+    intro x; simp [funext_iff]; apply inst.μ_surjective.property
+  μ_ord_pure := by
+    intros p₁ p₂ imp; simp [pure, ExceptT.pure, ExceptT.mk]
+    solve_by_elim [MPropPartialOrder.μ_ord_pure]
+  μ_ord_bind := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x
-    have leM := @inst.μOrd (Except ε α)
+    have leM := @inst.μ_ord_bind (Except ε α)
       (fun x => Except.getD df <$> Except.bind' x f)
       (fun x => Except.getD df <$> Except.bind' x g)
     simp only [Function.comp, Pi.hasLe, <-map_bind, Except.bind'_bind] at leM
@@ -93,9 +111,14 @@ namespace AngelicChoice
 instance NonDetMProp :
    MPropPartialOrder NonDetM.{0} Prop where
   μ := (∃ x ∈ ·.takeAll, x.prop)
-  μSur := by
+  μ_surjective := by
     exists (NonDetM.one ·); intros x; simp [NonDetM.takeAll]
-  μOrd := by
+  μ_top := by intros x; simp [pure, NonDetM.takeAll]
+  μ_bot := by intros x; simp [pure, NonDetM.takeAll]
+  μ_ord_pure := by
+    intros p₁ p₂ imp; simp [pure, NonDetM.takeAll]
+    solve_by_elim
+  μ_ord_bind := by
     intros α f g le x; simp; induction x <;> simp_all [bind, NonDetM.bind, NonDetM.takeAll, NonDetM.takeAll_union]
     rename_i y _ ih; rintro x (h|h) xp
     · specialize le y ?_; simp; exists x
@@ -118,9 +141,14 @@ theorem List.forall_forall {α} (f : α -> Prop) (xs : List α) : List.forall f 
 instance NonDetMProp :
    MPropPartialOrder NonDetM.{0} Prop where
   μ := (List.forall (·.prop) ·.takeAll)
-  μSur := by
+  μ_surjective := by
     exists (NonDetM.one ·); intros x; simp [NonDetM.takeAll]
-  μOrd := by
+  μ_top := by intros x; simp [pure, NonDetM.takeAll]
+  μ_bot := by intros x; simp [pure, NonDetM.takeAll]
+  μ_ord_pure := by
+    intros p₁ p₂ imp; simp [pure, NonDetM.takeAll]
+    solve_by_elim
+  μ_ord_bind := by
     intros α f g le x; simp; induction x <;> simp_all [bind, NonDetM.bind, NonDetM.takeAll, NonDetM.takeAll_union]
     rename_i y _ ih; rintro h x (hh|hh);
     · specialize le y ?_ _ hh <;> simp_all

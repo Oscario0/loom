@@ -3,9 +3,10 @@ import LoL.MProp.Instances
 
 universe u v w
 
-variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u}
-variable {l : Type u} [Preorder l]
+variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u}
 
+section
+variable  [Preorder l]
 section
 variable [MProp m l]
 
@@ -49,3 +50,30 @@ theorem Triple.forIn_list {α β}
     simp only [List.forIn_cons]
     apply mtriple_bind; apply hstep; intros y
     cases y <;> simp <;> solve_by_elim [mtriple_pure, le_refl]
+end
+
+variable [SemilatticeInf l] [MPropPartialOrder m l]
+
+def spec (pre : l) (post : α -> l) : Cont l α :=
+  fun p => pre ⊓ MProp.pure (m := m) (post ≤ p)
+
+def mspec (pre : m PProp) (post : α -> m PProp) : Cont l α :=
+  spec (m := m) (MProp.μ pre) (MProp.μ ∘ post)
+
+lemma triple_spec (pre : l) (c : m α) (post : α -> l) :
+  spec (m := m) pre post <= liftM c <->
+  triple pre c post := by
+    constructor
+    { intro h; unfold triple
+      specialize h post; apply le_trans'; apply h
+      unfold spec; simp
+      apply MPropPartialOrder.μ_top }
+    intro t p; unfold spec
+    by_cases h: post ≤ p
+    { apply inf_le_of_left_le; apply le_trans; apply t
+      solve_by_elim [Cont.monotone_lift (x := c)] }
+    apply inf_le_of_right_le; apply le_trans'; apply MPropPartialOrder.μ_bot (m := m)
+    apply MPropPartialOrder.μ_ord_pure; solve_by_elim
+
+lemma mtriple_mspec (pre : m PProp) (c : m α) (post : α -> m PProp) :
+  mspec pre post ≤ liftM c <-> mtriple pre c post := by apply triple_spec
