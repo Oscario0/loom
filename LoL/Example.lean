@@ -39,7 +39,7 @@ lemma decr_spec (n sOld : Nat) :
     (decr n)
     fun _ => do { let s <- get; return s + n = sOld } := by
     -- prepare the goal
-    simp only [mtriple, triple, decr]
+    simp only [mtriple, triple, wp, decr]
     -- propagate the lifting into Specification monad
     simp_lift Tot.myM
     -- simplify basic monadic operations
@@ -69,7 +69,7 @@ lemma decr_spec (n s : Nat) :
     (decr n)
     fun _ => do { return (<- get) <= s } := by
     -- prepare the goal
-    simp only [mtriple, triple, decr]
+    simp only [mtriple, triple, wp, decr]
     -- propagate the lifting into Specification monad
     simp_lift myM
     -- simplify basic monadic operations
@@ -117,7 +117,7 @@ lemma decr_spec (n s : Nat) :
     (decr' n)
     fun _ => do { return (<- get) <= s } := by
     -- prepare the goal
-    simp only [mtriple, triple, decr']
+    simp only [mtriple, triple, wp, decr']
     -- propagate the lifting into Specification monad
     simp_lift NonDet.myM
     -- simplify basic monadic operations

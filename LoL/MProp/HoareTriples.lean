@@ -10,31 +10,45 @@ variable  [Preorder l]
 section
 variable [MProp m l]
 
+def wp (c : m α) (post : α -> l) : l := liftM (n := Cont l) c post
+
 def triple (pre : l) (c : m α) (post : α -> l) : Prop :=
-  pre ≤ liftM (n := Cont l) c post
+  pre ≤ wp c post
 
 abbrev mtriple (pre : m PProp) (c : m α) (post : α -> m PProp) : Prop :=
-  triple (MProp.μ pre) c (MProp.μ (m := m) ∘ post)
+  triple (MProp.μ pre) c (MProp.μ ∘ post)
 
 lemma mtriple_pure (pre : m PProp) (x : α) (post : α -> m PProp) :
   MProp.μ pre ≤ MProp.μ (post x) ->
   mtriple pre (pure x) post := by
-    intros h; rw [mtriple, triple]; simp [liftM, lift_pure]; apply h
+    intros h; rw [mtriple, triple, wp]; simp [liftM, lift_pure]; apply h
 end
 
 variable [MPropOrdered m l]
+
+lemma wp_bind {β} (x : m α) (f : α -> m β) (post : β -> l) :
+    wp (x >>= f) post = wp x (fun x => wp (f x) post) := by
+    simp [wp, liftM]; rw [lift_bind]; rfl
+
+lemma wp_cons (x : m α) (post post' : α -> l) :
+  (∀ y, post y ≤ post' y) ->
+  wp x post ≤ wp x post' := by
+    intros h; simp [wp]; apply Cont.monotone_lift; intros y
+    apply h
+
+lemma triple_bind {β} (pre : l) (x : m α) (cut : α -> l)
+  (f : α -> m β) (post : β -> l) :
+  triple pre x cut ->
+  (∀ y, triple (cut y) (f y) post) ->
+  triple pre (x >>= f) post := by
+    intros; simp [triple, wp_bind]
+    solve_by_elim [le_trans', wp_cons]
 
 lemma mtriple_bind {β} (pre : m PProp) (x : m α) (cut : α -> m PProp)
   (f : α -> m β) (post : β -> m PProp) :
   mtriple pre x cut ->
   (∀ y, mtriple (cut y) (f y) post) ->
-  mtriple pre (x >>= f) post := by
-    intros hcut hpost
-    simp [mtriple, triple, liftM, lift_bind]
-    apply le_trans; apply hcut
-    have h: monadLift x = MProp.lift x := by rfl
-    simp [h, Bind.bind];
-    apply Cont.monotone_lift; apply hpost
+  mtriple pre (x >>= f) post := by apply triple_bind
 
 theorem Triple.forIn_list {α β}
   {xs : List α} {init : β} {f : α → β → m (ForInStep β)}
@@ -61,7 +75,7 @@ def mspec (pre : m PProp) (post : α -> m PProp) : Cont l α :=
   spec (m := m) (MProp.μ pre) (MProp.μ ∘ post)
 
 lemma triple_spec (pre : l) (c : m α) (post : α -> l) :
-  spec (m := m) pre post <= liftM c <->
+  spec (m := m) pre post <= wp c <->
   triple pre c post := by
     constructor
     { intro h; unfold triple
@@ -76,4 +90,4 @@ lemma triple_spec (pre : l) (c : m α) (post : α -> l) :
     apply MPropPartialOrder.μ_ord_pure; solve_by_elim
 
 lemma mtriple_mspec (pre : m PProp) (c : m α) (post : α -> m PProp) :
-  mspec pre post ≤ liftM c <-> mtriple pre c post := by apply triple_spec
+  mspec pre post ≤ wp c <-> mtriple pre c post := by apply triple_spec
