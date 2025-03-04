@@ -37,10 +37,10 @@ lemma MProp.cancelM {l} [Monad m] [MProp m l] {α : Type v} (x : m α) (f : _ ->
   apply MProp.bind; unfold Function.comp; simp [MProp.cancel]
 
 
-abbrev MProp.lift {m : Type u -> Type v} {l : Type u} [Monad m] [LawfulMonad m] [MProp m l] :
+abbrev MProp.lift {m : Type u -> Type v} {l : Type u} [Monad m] [MProp m l] :
   {α : Type u} -> m α -> Cont l α := fun x f => μ $ f <$> x >>= MProp.ι
 
-instance (l : Type u) {m : Type u -> Type v} [Monad m] [LawfulMonad m] [MProp m l] : MonadLiftT m (Cont l) where
+instance (l : Type u) {m : Type u -> Type v} [Monad m] [MProp m l] : MonadLiftT m (Cont l) where
   monadLift := MProp.lift
 
 
@@ -63,11 +63,20 @@ lemma Cont.monotone_lift {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMo
   unfold Cont.monotone; intros; simp [MProp.lift]
   apply MPropOrdered.μ_ord_bind; intro; simp [MProp.cancel, *]
 
+/-
+  m = State σ ---> l = σ -> Prop
+  m = Reader ρ ---> l = ρ -> Prop
+  m = Except ε ---> l = Prop
+  ...
+
+  m = StateT σ m' ---> l = σ -> l'
+-/
 class MPropPartialOrder (l : outParam (Type v)) [Monad m] [PartialOrder l] where
   μ : m PProp -> l
   μ_surjective : { ι : l -> m PProp // μ.LeftInverse ι }
   μ_top (x : l) : x <= μ (pure True)
   μ_bot (x : l) : μ (pure False) <= x
+  μ_nontriv : μ (pure True) ≠ μ (pure False) -- pick_outcomes
   μ_ord_pure (p₁ p₂ : Prop) : (p₁ -> p₂) -> μ (pure p₁) ≤ μ (pure p₂)
   μ_ord_bind {α : Type v} :
     ∀ (f g : α -> m PProp), μ ∘ f ≤ μ ∘ g ->

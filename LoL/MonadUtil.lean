@@ -42,8 +42,6 @@ instance (t : Type v) [Preorder t] : Monad (W t) where
   bind x f := ⟨fun g => x.wp (fun a => (f a).wp g), by simp; intros; solve_by_elim [W.wp_montone]⟩
 
 -- class Logic (t : Type u) extends SemilatticeInf t where
---   pure : Prop -> t
---   and_pure : ∀ p₁ p₂, pure p₁ ⊓ pure p₁ = pure (p₁ ∧ p₂)
---   le_pure :  ∀ p₁ p₂, (p₁ -> p₂) -> pure p₁ ≤ pure p₂
-
--- notation "⌜" p "⌝" => Logic.pure p
+--   sat : t -> Prop
+--   sat_monotone : ∀ {p₁ p₂ : t}, p₁ ≤ p₂ -> sat p₁ -> sat p₂
+class abbrev Logic (t : Type u) := SemilatticeInf t

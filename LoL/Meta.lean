@@ -282,8 +282,6 @@ def Lean.Expr.runUnfold (e : Expr) (defs : List Name) : TermElabM Expr := do
 def ultimateReduce (e : Expr) : TermElabM Expr :=
   withTransparency (mode := .default) <| reduceAll e
 
-#reduce True
-
 def simpleAddThm (n : Name) (tp : Expr) (pf : Expr)
   (attr : Array Attribute := #[]) : TermElabM Unit := do
   addDecl <|

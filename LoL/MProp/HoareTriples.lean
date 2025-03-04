@@ -19,9 +19,10 @@ abbrev mtriple (pre : m PProp) (c : m α) (post : α -> m PProp) : Prop :=
   triple (MProp.μ pre) c (MProp.μ ∘ post)
 
 lemma mtriple_pure (pre : m PProp) (x : α) (post : α -> m PProp) :
-  MProp.μ pre ≤ MProp.μ (post x) ->
-  mtriple pre (pure x) post := by
-    intros h; rw [mtriple, triple, wp]; simp [liftM, lift_pure]; apply h
+  mtriple pre (pure x) post <->
+  MProp.μ pre ≤ MProp.μ (post x)
+  := by
+    rw [mtriple, triple, wp]; simp [liftM, lift_pure]; rfl
 end
 
 variable [MPropOrdered m l]
@@ -60,10 +61,10 @@ theorem Triple.forIn_list {α β}
       (fun | .yield b' => inv tl b' | .done b' => inv [] b')) :
   mtriple (inv xs init) (forIn xs init f) (inv []) := by
     induction xs generalizing init
-    { apply mtriple_pure; simp }
+    { simp; rw [mtriple_pure] }
     simp only [List.forIn_cons]
     apply mtriple_bind; apply hstep; intros y
-    cases y <;> simp <;> solve_by_elim [mtriple_pure, le_refl]
+    cases y <;> simp <;> solve_by_elim [(mtriple_pure ..).mpr, le_refl]
 end
 
 variable [SemilatticeInf l] [MPropPartialOrder m l]
@@ -91,3 +92,5 @@ lemma triple_spec (pre : l) (c : m α) (post : α -> l) :
 
 lemma mtriple_mspec (pre : m PProp) (c : m α) (post : α -> m PProp) :
   mspec pre post ≤ wp c <-> mtriple pre c post := by apply triple_spec
+
+class abbrev MonadLogic (m : Type u -> Type v) (l : Type u) [Monad m] := Logic l, MPropPartialOrder m l

@@ -1,5 +1,5 @@
 import LoL.MProp.EffectObservations
-import LoL.NonDetT
+import LoL.NonDetM
 
 instance : Nonempty PProp := ⟨PProp.mk True⟩
 
@@ -8,10 +8,12 @@ instance : MPropPartialOrder Id Prop where
   μ_surjective := by exists (fun x => PProp.mk x); simp [Function.LeftInverse]
   μ_top := by simp
   μ_bot := by simp
+  μ_nontriv := by simp
   μ_ord_pure := by simp
   μ_ord_bind := by solve_by_elim
 
 instance (σ : Type) (l : Type) (m : Type -> Type)
+  [Inhabited σ]
   [PartialOrder l]
   [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (StateT σ m) (σ -> l) where
   μ := fun sp s => Prod.fst <$> sp s |> inst.μ
@@ -24,6 +26,9 @@ instance (σ : Type) (l : Type) (m : Type -> Type)
   μ_ord_pure := by
     intros p₁ p₂ imp s; simp [pure, StateT.pure]
     solve_by_elim [MPropPartialOrder.μ_ord_pure]
+  μ_nontriv := by
+    simp [pure, StateT.pure, funext_iff];
+    solve_by_elim [MPropPartialOrder.μ_nontriv]
   μ_ord_bind := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x s
@@ -32,6 +37,7 @@ instance (σ : Type) (l : Type) (m : Type -> Type)
     apply leM; simp only [implies_true, le]
 
 instance (ρ : Type) (l : Type) (m : Type -> Type)
+  [Inhabited ρ]
   [PartialOrder l]
   [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ReaderT ρ m) (ρ -> l) where
   μ := fun rp r => rp r |> inst.μ
@@ -44,6 +50,9 @@ instance (ρ : Type) (l : Type) (m : Type -> Type)
   μ_ord_pure := by
     intros p₁ p₂ imp s; simp [pure]
     solve_by_elim [MPropPartialOrder.μ_ord_pure]
+  μ_nontriv := by
+    simp [pure, ReaderT.pure, funext_iff];
+    solve_by_elim [MPropPartialOrder.μ_nontriv]
   μ_ord_bind := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x r
@@ -72,6 +81,9 @@ def MPropExcept (df : Prop) (ε : Type) (l : Type) (m : Type -> Type)
   μ_surjective := by
     exists fun x => Functor.map (β := Except _ _) .ok (MProp.ι x)
     intro x; simp [funext_iff]; apply inst.μ_surjective.property
+  μ_nontriv := by
+    simp [pure, ExceptT.pure, Except.getD, ExceptT.mk, funext_iff];
+    solve_by_elim [MPropPartialOrder.μ_nontriv]
   μ_ord_pure := by
     intros p₁ p₂ imp; simp [pure, ExceptT.pure, ExceptT.mk]
     solve_by_elim [MPropPartialOrder.μ_ord_pure]
@@ -115,6 +127,7 @@ instance NonDetMProp :
     exists (NonDetM.one ·); intros x; simp [NonDetM.takeAll]
   μ_top := by intros x; simp [pure, NonDetM.takeAll]
   μ_bot := by intros x; simp [pure, NonDetM.takeAll]
+  μ_nontriv := by simp [pure, NonDetM.takeAll]
   μ_ord_pure := by
     intros p₁ p₂ imp; simp [pure, NonDetM.takeAll]
     solve_by_elim
@@ -145,6 +158,7 @@ instance NonDetMProp :
     exists (NonDetM.one ·); intros x; simp [NonDetM.takeAll]
   μ_top := by intros x; simp [pure, NonDetM.takeAll]
   μ_bot := by intros x; simp [pure, NonDetM.takeAll]
+  μ_nontriv := by simp [pure, NonDetM.takeAll]
   μ_ord_pure := by
     intros p₁ p₂ imp; simp [pure, NonDetM.takeAll]
     solve_by_elim

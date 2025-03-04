@@ -22,6 +22,11 @@ namespace Tot
 open TotalCorrectness
 
 abbrev myM := StateT Nat (ExceptT String Id)
+/-
+  pre/post := Nat -> Prop
+
+  μ : myM Prop -> pre/post
+-/
 
 #gen_spec getE                           for MProp.lift (m := myM) get
 #gen_spec setE (s : Nat)                 for MProp.lift (m := myM) <| set s
@@ -50,6 +55,12 @@ lemma decr_spec (n sOld : Nat) :
     -- actual proof
     omega
 
+
+lemma decr_spec' (n sOld : Nat) :
+  triple
+    (fun s => n <= s ∧ s = sOld)
+    (decr n)
+    (fun _ s => s + n = sOld) := by sorry
 
 end Tot
 
