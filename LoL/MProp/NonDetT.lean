@@ -11,7 +11,7 @@ universe u v w
 
 section NonDetermenisticTransformer
 
-variable {m : Type u -> Type v} {l : Type u} {α β : Type u} [Monad m] [inst: BooleanAlgebra l]
+variable {m : Type u -> Type v} {l : Type u} {α β : Type u} [Monad m] [inst: CompleteBooleanAlgebra l]
 
 local
 instance : SemilatticeInf l := inst.toLattice.toSemilatticeInf
@@ -75,63 +75,96 @@ theorem lift_sem {α : Type u} (x : m α) : (liftM (n := NonDetT m l) x).sem = f
 theorem assume_sem (as : Prop) : (assume (m := NonDetT m l) as).sem = fun _ => return .unit := rfl
 theorem pick_sem (τ : Type u) : (pick (m := NonDetT m l) τ).sem = Pure.pure := rfl
 
+def NonDetT.isMorphism {α : Type u} (x y : NonDetT m l α) (f : x.tp -> y.tp) : Prop :=
+  (∀ t, x.pre t = y.pre (f t)) ∧
+  ∀ t, x.sem t = y.sem (f t)
+
+def NonDetT.hasMorphism {α : Type u} (x y : NonDetT m l α) : Prop :=
+  ∃ f, x.isMorphism y f
+
+theorem NonDetT.hasMorphism_refl {α : Type u} (x : NonDetT m l α) : x.hasMorphism x := by
+  exists id
+  constructor
+  { intro t; simp }
+  intro t; simp
+
+theorem NonDetT.hasMorphism_trans {α : Type u} (x y z : NonDetT m l α) :
+  x.hasMorphism y -> y.hasMorphism z -> x.hasMorphism z := by
+  intro ⟨f, hxy⟩ ⟨g, hyz⟩
+  exists g ∘ f
+  constructor
+  { intro t
+    rw [hxy.1, hyz.1]; rfl }
+  intro t
+  rw [hxy.2, hyz.2]; rfl
+
+theorem NonDetT.hasMorphism_bind {α β : Type u} (x y : NonDetT m l α) (f g : α -> NonDetT m l β) :
+  x.hasMorphism y ->
+  (∀ a, (f a).hasMorphism (g a)) ->
+  (x.bind f).hasMorphism (y.bind g) := by
+    rintro ⟨r, pre₁, sem₁⟩ r
+    rcases Classical.skolem.mp r with ⟨fr, fbij⟩; clear r
+    unfold NonDetT.bind
+    exists fun a => ⟨r a.1, fun out => fr out $ a.2 out⟩
+    unfold isMorphism at fbij ⊢; dsimp
+    constructor <;> aesop
+
+def NonDetT.equiv {α : Type u} (x y : NonDetT m l α) : Prop :=
+  x.hasMorphism y ∧ y.hasMorphism x
+
+theorem NonDetT.equiv_bind {α β : Type u} (x y : NonDetT m l α) (f g : α -> NonDetT m l β) :
+  x.equiv y ->
+  (∀ a, (f a).equiv (g a)) ->
+  (x.bind f).equiv (y.bind g) := by
+    rintro ⟨x2y, y2x⟩; unfold equiv; simp [forall_and]
+    constructor <;> solve_by_elim [NonDetT.hasMorphism_bind]
+
+theorem NonDetT.equiv_refl {α : Type u} (x : NonDetT m l α) : x.equiv x := by
+  constructor <;> apply NonDetT.hasMorphism_refl
+
+theorem NonDetT.equiv_symm {α : Type u} (x y : NonDetT m l α) : x.equiv y -> y.equiv x := by
+  intro h
+  constructor
+  { exact h.2 }
+  exact h.1
+
+theorem NonDetT.equiv_trans {α : Type u} (x y z : NonDetT m l α) :
+  x.equiv y -> y.equiv z -> x.equiv z := by
+  rintro ⟨x2y, y2x⟩ ⟨y2z, z2y⟩
+  constructor <;> apply NonDetT.hasMorphism_trans <;> assumption
+
+theorem NonDetT.morphism_cancel {α : Type u} {x y : NonDetT m l α} {f : x.tp -> y.tp} {g : y.tp -> x.tp} :
+  x.isMorphism y f -> y.isMorphism x g ->
+  (∀ t : x.tp, x.sem (g (f t)) = x.sem t) ∧
+  (∀ t : x.tp, x.pre (g (f t)) = x.pre t) := by
+  rintro ⟨pred₁, sem₁⟩ ⟨pred₂, sem₂⟩
+  simp [<-sem₁, <-sem₂, <-pred₂, <-pred₁]
+
+def NonDetT.μ (x : NonDetT m l PProp) : l := ⨅ t : x.tp, x.pre t ⇨ MProp.μ (x.sem t)
+
+theorem NonDetT.μ_equiv (x y : NonDetT m l PProp) : x.equiv y -> x.μ = y.μ := by
+  rcases x with ⟨tp₁, pre₁, sem₁⟩
+  rcases y with ⟨tp₂, pre₂, sem₂⟩
+  rintro ⟨⟨f, semE₁, preE₁⟩, ⟨g, semE₂, preE₂⟩⟩
+  simp at f g semE₁ semE₂ preE₁ preE₂ ⊢
+  apply le_antisymm <;> apply sInf_le_sInf <;> (simp [Set.range]; intro x)
+  { exists (g x); congr <;> simp [<-semE₂, preE₂] }
+  exists (f x); congr <;> simp [<-semE₁, preE₁]
+
 instance NonDetT.Setoid (α) : Setoid (NonDetT m l α) where
-  r := fun ⟨tp₁, pre₁, sem₁⟩ ⟨tp₂, pre₂, sem₂⟩ =>
-    ∃ f : tp₁ -> tp₂,
-      f.Bijective ∧
-      (∀ t, pre₁ t = pre₂ (f t)) ∧
-      (∀ t, sem₁ t = sem₂ (f t))
+  r := NonDetT.equiv
   iseqv := {
-    refl := by
-      intro x;
-      apply Exists.intro (fun x => x);
-      simp;
-      exact Function.Involutive.bijective (congrFun rfl)
-    symm := by
-      intro ⟨tp₁, pred₁, sem₁⟩ ⟨tp₂, pred₂, sem₂⟩ ⟨f, bij, peq, seq⟩; dsimp only
-      exists f.surjInv bij.2; constructor
-      { refine Function.bijective_iff_has_inverse.mpr ?_; exists f; constructor
-        { refine Function.RightInverse.leftInverse ?_
-          exact Function.rightInverse_surjInv bij.right }
-        refine Function.LeftInverse.rightInverse ?_
-        exact Function.leftInverse_surjInv bij }
-      simp [peq, seq, Function.surjInv_eq]
-    trans := by
-      intro ⟨tp₁, pred₁, sem₁⟩ ⟨tp₂, pred₂, sem₂⟩ ⟨tp₃, pred₃, sem₃⟩
-        ⟨f₁, bij₁, peq₁, seq₁⟩ ⟨f₂, bij₂, peq₂, seq₂⟩
-      simp
-      exists (f₂ ∘ f₁); constructor
-      { exact Function.Bijective.comp bij₂ bij₁ }
-      simp [*] }
+    refl := equiv_refl
+    symm := by exact fun {x y} ↦ equiv_symm x y
+    trans := by exact fun {x y z} ↦ equiv_trans x y z }
 
 lemma bind_eq (x y : NonDetT m l α) {f g : α → NonDetT m l β} :
   x ≈ y ->
   (∀ a, f a ≈ g a) ->
-  (x.bind f) ≈ (y.bind g) := by
-  rcases x with ⟨tp₁, pre₁, sem₁⟩
-  rcases y with ⟨tp₂, pre₂, sem₂⟩
-  rintro ⟨r, bij, peq, seq⟩
-  simp only [HasEquiv.Equiv, Setoid.r]; intro r
-  rcases Classical.skolem.mp r with ⟨fr, fbij⟩; clear r
-  unfold NonDetT.bind; dsimp
-  exists fun a => ⟨r a.1, fun out => fr out $ a.2 out⟩
-  repeat' constructor
-  { intro ⟨t₁, fr₁⟩ ⟨t₂, fr₂⟩; simp; intro req
-    have req := bij.1 req; subst_vars; simp [funext_iff]
-    intro feq out
-    solve_by_elim [(fbij out).1.1] }
-  { intro ⟨t, gr⟩; rw [@Prod.exists]
-    rcases (bij.2 t) with ⟨t', pt'⟩
-    exists t'; dsimp; rw [pt']
-    simp only [Prod.mk.injEq, true_and, funext_iff]
-    apply Classical.skolem (p := fun out bout => fr out bout = gr out) |>.mp
-    intro out
-    rcases fbij out |>.1.2 (gr out) with ⟨z, pz⟩; exists z }
-  { aesop }
-  aesop
+  (x.bind f) ≈ (y.bind g) := by apply NonDetT.equiv_bind
 
 abbrev LawfullNonDetT m l
-  [Monad m] [BooleanAlgebra l] [MPropPartialOrder m l] α :=
+  [Monad m] [CompleteBooleanAlgebra l] [MPropPartialOrder m l] α :=
   Quotient (NonDetT.Setoid (m := m) α)
 
 -- abbrev LawfullNonDetT.mk : NonDetT m l α -> LawfullNonDetT m l α := Quotient.mk (NonDetT.Setoid α)
@@ -176,38 +209,13 @@ instance [LawfulMonad m] : LawfulMonad (LawfullNonDetT m l) := by
     rintro b; exists ⟨b, fun _ => .unit⟩ }
   { intros α β x f; simp [pure, LawfullNonDetT.pure, bind]
     simp [LawfullNonDetT.bind];
-    induction f using Quotient.fun_ind; simp }
+    induction f using Quotient.fun_ind; simp
+    rw [Quotient.liftOnFun_correct]
+    { rename_i nd; simp only [NonDetT.Setoid, NonDetT.pure, NonDetT.bind]
+      simp only [meet_pure_true, Prod.forall, pure_bind]
+       } }
   { sorry }
   intros; sorry
-
-
-instance [LawfulMonad m] : LawfulFunctor (LawfullNonDetT m l) where
-  map_const := by intros; rfl
-  id_map    := by
-    intros α x
-    induction x using Quotient.ind
-    rename_i nd;
-    simp only [Functor.map, LawfullNonDetT.map, NonDetT.Setoid, Function.comp_id, Quotient.lift_mk,
-      Quotient.eq]
-    rcases nd with ⟨tp, pre, sem⟩
-    simp only [NonDetT.bind, NonDetT.pure]; exists (·.1);
-    repeat' constructor <;> try simp
-    { rintro ⟨_, _⟩; aesop }
-    rintro b; exists ⟨b, fun _ => .unit⟩
-  comp_map := by
-    intros α β γ g h x
-    induction x using Quotient.ind; rename_i nd
-    simp only [Functor.map, LawfullNonDetT.map, NonDetT.Setoid, Quotient.lift_mk, Quotient.eq]
-    rw [Quotient.liftOn_mk]; apply Quotient.sound
-
-
-
-
-
-
-
-instance : Functor (LawfullNonDetT m l) where
-
 
 
 notation "NonDetT" t => NonDetT t _
