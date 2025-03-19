@@ -43,7 +43,7 @@ def NonDetT.bind (x : NonDetT m l α) (f : α → NonDetT m l β) : NonDetT m l 
     x.tp × ((out : α) -> (f out).tp),
     by apply @instInhabitedProd _ _ x.tp₀ (@Pi.instInhabited _ _ (fun a => (f a).tp₀)),
     fun t => x.pre t.1 ⊓
-      pwp (x.sem t.1) fun out => (f out).pre (t.2 out),
+      wlp (x.sem t.1) fun out => (f out).pre (t.2 out),
     fun t => x.sem t.1 >>= fun out => (f out).sem (t.2 out)
   ⟩
 
@@ -227,14 +227,9 @@ instance [LawfulMonad m] : LawfulMonad (LawfullNonDetT m l) := by
     simp [NonDetT.bind, NonDetT.pure];
     repeat' constructor <;> simp }
   { intros α β x f; simp [pure, LawfullNonDetT.pure, bind]
-    simp [LawfullNonDetT.bind];
     induction f using Quotient.fun_ind
-    apply Quotient.sound; transitivity
-    apply Quotient.liftOnFun_correct
-    { solve_by_elim [bind_eq, NonDetT.equiv_refl] }
-    rename_i nd; simp only [NonDetT.Setoid, NonDetT.pure, NonDetT.bind]
-    simp only [meet_pure_true, Prod.forall, pure_bind]
-    constructor <;> simp
+    simp; simp [NonDetT.Setoid, NonDetT.pure, NonDetT.bind]
+    rename_i nd; constructor
     { exists (·.2 x); constructor <;> simp }
     exists (fun ndx => (.unit,
       fun y =>
@@ -243,6 +238,18 @@ instance [LawfulMonad m] : LawfulMonad (LawfullNonDetT m l) := by
         else (nd y).tp₀.default))
     constructor <;> simp }
   { intros α β γ x f g; simp [pure, LawfullNonDetT.pure, bind]
+    induction x using Quotient.ind; rename_i ndx
+    induction f using Quotient.fun_ind; rename_i ndf
+    induction g using Quotient.fun_ind; rename_i ndg
+    simp; simp [NonDetT.Setoid, NonDetT.pure, NonDetT.bind]
+    constructor
+    {
+      exists (fun t => ⟨t.1.1, fun x => ⟨t.1.2 x, t.2⟩ ⟩)
+      constructor
+      { simp only [Prod.forall]
+        intro t ft₁ ft₂; rw [inf_assoc]; congr
+         } }
+
 
     }
   intros; sorry

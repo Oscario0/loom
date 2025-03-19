@@ -1,3 +1,5 @@
+import Mathlib.Order.CompleteBooleanAlgebra
+
 import LoL.MProp.EffectObservations
 import LoL.MProp.Instances
 
@@ -106,33 +108,74 @@ class abbrev MonadLogic (m : Type u -> Type v) (l : Type u) [Monad m] := Logic l
 end
 
 section
-variable [inst: SemilatticeSup l]
-
-local instance : PartialOrder l := inst.toPartialOrder
+variable [inst: CompleteBooleanAlgebra l]
 
 variable [MPropPartialOrder m l]
 
--- partial weakest precondition
-def pwp (c : m α) (post : α -> l) : l :=
-  wp c post ⊔ ⌜∀ a, ⌜True⌝ ≤ post a⌝
+omit [LawfulMonad m] in
+@[simp]
+lemma trueE : ⌜True⌝ = ⊤ := by
+  apply le_antisymm; exact OrderTop.le_top ⌜True⌝
+  apply MPropPartialOrder.μ_top
 
 omit [LawfulMonad m] in
 @[simp]
-lemma pwp_true (c : m α) : pwp c (fun _ => ⌜True⌝) = ⌜True⌝ := by
-  simp [pwp]; apply MPropPartialOrder.μ_top
+lemma falseE : ⌜False⌝ = ⊥ := by
+  apply le_antisymm; apply MPropPartialOrder.μ_bot
+  simp
+
+def failPre (c : m α) : l := sSup {pre | ¬ triple pre c ⊤}
+
+-- @[simp]
+lemma failPre_bind {β} x (f : α -> m β) :
+  failPre (x >>= f) <= failPre x ⊔ wp x (fun x => failPre (f x)) := by
+    simp [failPre, triple, wp_bind]
+    intro pre htr
+    by_cases hpre : pre <= wp x ⊤
+    { refine le_sup_of_le_right ?_
+      apply le_trans; apply hpre; apply wp_cons; intros
+      apply CompleteLattice.le_sSup; simp
+      intro  }
+
+@[simp]
+lemma failPre_bind' {β} x (f : α -> m β) : failPre x <= failPre (x >>= f) := by
+  simp [failPre, triple, wp_bind]
+  intro pre hpre;
+  refine CompleteLattice.le_sSup {pre | ¬pre ≤ wp x fun x ↦ wp (f x) ⊤} pre ?_
+  simp; revert hpre; contrapose!
+  solve_by_elim [le_trans', wp_cons, le_top]
+
+-- partial weakest precondition
+def wlp (c : m α) (post : α -> l) : l :=
+  wp c post ⊔ failPre c
+
+def ptriple (pre : l) (c : m α) (post : α -> l) : Prop :=
+  pre ≤ wlp c post
+
+omit [LawfulMonad m] in
+@[simp]
+lemma wlp_true (c : m α) : wlp c (fun _ => ⌜True⌝) = ⌜True⌝ := by
+  simp [wlp]; apply le_antisymm; simp
+  simp only [failPre, triple]
+  by_cases h : ⊤ <= wp c ⊤
+  { solve_by_elim [le_sup_of_le_left] }
+  apply le_sup_of_le_right
+  exact CompleteLattice.le_sSup {pre | ¬pre ≤ wp c ⊤} ⊤ h
 
 -- partial weakest precondition
 @[simp]
-lemma pwp_pure (x : α) (post : α -> l) :
-  pwp (pure (f := m) x) post = post x := by
-    simp [pwp, wp_pure]; rw [MProp.pure_intro]; solve_by_elim
+lemma wlp_pure (x : α) (post : α -> l) :
+  wlp (pure (f := m) x) post = post x := by
+    simp [wlp, failPre, wp_pure, triple_pure]
 
-lemma pwp_bind {β} (x : m α) (f : α -> m β) (post : β -> l) :
-  pwp (x >>= f) post = pwp x (fun x => pwp (f x) post) := by
-  simp [pwp, wp_bind]; apply le_antisymm
+
+lemma wlp_bind {β} (x : m α) (f : α -> m β) (post : β -> l) :
+  wlp (x >>= f) post = wlp x (fun x => wlp (f x) post) := by
+  simp [wlp, wp_bind]; apply le_antisymm
   { simp; constructor
     { refine le_sup_of_le_left ?_
       apply wp_cons <;> simp }
+
     refine le_sup_of_le_right ?_
     apply MProp.pure_imp; intros
     solve_by_elim [le_sup_of_le_right, MProp.pure_imp] }
