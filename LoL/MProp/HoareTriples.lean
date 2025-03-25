@@ -129,13 +129,34 @@ lemma compl_fun {α} (x y : α -> l) :
   (fun a => x a ⊔ y a)ᶜ = (fun a => (x a)ᶜ ⊓ (y a)ᶜ) := by simp [compl]
 
 @[local simp]
+lemma compl_fun' {α} (x y : α -> l) :
+  (fun a => x a ⊓ y a)ᶜ = (fun a => (x a)ᶜ ⊔ (y a)ᶜ) := by simp [compl]
+
+@[local simp]
+lemma compl_fun'' {α} (x : α -> l) :
+  (fun a => (x a)ᶜ) = xᶜ := by simp [compl]
+
+
+@[local simp]
 lemma compl_fun_true {α} :
   (fun (_ : α) => ⊤)ᶜ = fun _ => (⊥ : l) := by simp [compl]
 
 def wlp (c : m α) (post : α -> l) : l := (wp c postᶜ)ᶜ ⊔ wp c post
 
+lemma wp_and [MPropDetertministic m l] (c : m α) (post₁ post₂ : α -> l) :
+  wp c (fun x => post₁ x ⊓ post₂ x) = wp c post₁ ⊓ wp c post₂ := by
+  apply le_antisymm
+  { simp; constructor <;> apply wp_cons <;> simp }
+  apply MPropDetertministic.demonic
+
+lemma wp_or [MPropDetertministic m l] (c : m α) (post₁ post₂ : α -> l) :
+  wp c (fun x => post₁ x ⊔ post₂ x) = wp c post₁ ⊔ wp c post₂ := by
+  apply le_antisymm
+  { apply MPropDetertministic.angelic }
+  simp; constructor <;> apply wp_cons <;> simp
+
 @[simp]
-lemma wlp_true (c : m α) : wlp c (fun _ => ⌜True⌝) = ⌜True⌝ := by
+lemma wlp_true (c : m α) : wlp c (fun _ => ⊤) = ⊤ := by
   simp [wlp]; rw [@eq_top_iff, sup_comm, <-himp_eq]; simp
   apply wp_cons; simp
 
@@ -147,21 +168,39 @@ lemma wlp_pure (x : α) (post : α -> l) :
 omit [LawfulMonad m] in
 lemma wp_wlp (c : m α) (post : α -> l) :
   wp c post <= wlp c post := by
-    simp [wlp, wp];
+    simp [wlp, wp]
 
 variable [MPropDetertministic m l]
 
-lemma wp_and (c : m α) (post₁ post₂ : α -> l) :
-  wp c (fun x => post₁ x ⊓ post₂ x) = wp c post₁ ⊓ wp c post₂ := by
-  apply le_antisymm
-  { simp; constructor <;> apply wp_cons <;> simp }
-  apply MPropDetertministic.demonic
-
-lemma wp_or (c : m α) (post₁ post₂ : α -> l) :
-  wp c (fun x => post₁ x ⊔ post₂ x) = wp c post₁ ⊔ wp c post₂ := by
-  apply le_antisymm
-  { apply MPropDetertministic.angelic }
-  simp; constructor <;> apply wp_cons <;> simp
+lemma wlp_and (c : m α) (post₁ post₂ : α -> l) :
+  wlp c (fun x => post₁ x ⊓ post₂ x) = wlp c post₁ ⊓ wlp c post₂ := by
+  simp [wlp]; apply le_antisymm
+  { simp [wp_or, wp_and]; repeat' constructor
+    { apply le_sup_of_le_left; apply inf_le_of_left_le; rfl }
+    { apply le_sup_of_le_right; apply inf_le_of_left_le; rfl }
+    { apply le_sup_of_le_left; apply inf_le_of_right_le; rfl }
+    apply le_sup_of_le_right; apply inf_le_of_right_le; rfl }
+  rw (occs := .pos [3]) [sup_comm]; rw [<-himp_eq]; simp
+  rw [inf_inf_distrib_right]
+  conv =>
+    enter [1,1]
+    rw [inf_sup_right, <-wp_and];
+    simp [inf_sup_left]; rw [wp_or, inf_sup_left]; simp
+    erw [wp_and, <-inf_sup_right]
+  conv =>
+    enter [1,2]
+    rw [inf_sup_right, <-wp_and];
+    simp [inf_sup_left]; rw [wp_or, inf_sup_left]; simp
+    erw [wp_and, <-inf_sup_right]
+  rw (occs := .pos [3]) [inf_comm]
+  rw [inf_assoc]
+  rw (occs := .pos [2]) [<-inf_assoc]
+  rw (occs := .pos [3]) [inf_comm]
+  repeat rw [<-inf_assoc]
+  rw [inf_sup_right, <-wp_and]; simp
+  apply inf_le_of_left_le
+  apply inf_le_of_left_le
+  apply wp_cons; simp
 
 lemma wlp_bind {β} (x : m α) (f : α -> m β) (post : β -> l) :
   wlp (x >>= f) post = wlp x (fun x => wlp (f x) post) := by
