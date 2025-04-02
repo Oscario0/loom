@@ -261,7 +261,6 @@ lemma NonDetT.run_validSeed (x : NonDetT m α) (pre : l) (post : α -> l) (seed 
     simp [NonDetT.validSeed, triple, NonDetT.run, NonDetT.wp_eq]
     intro v h; apply le_trans'; apply h; simp [v]
 
-
 end NonDetermenisticTransformer
 
 section Example
