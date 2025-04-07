@@ -90,6 +90,17 @@ macro "⌜" p:term "⌝" : term => `(MPropOrdered.pure (inst := by assumption) {
   | `($(_) $p:term) => `(⌜$p:term⌝)
   | _ => throw ()
 
+
+lemma trueE (l : Type v) [Monad m] [CompleteLattice l] [MPropOrdered m l] : ⌜True⌝ = ⊤ := by
+  apply le_antisymm; exact OrderTop.le_top ⌜True⌝
+  apply MPropOrdered.μ_top
+
+
+lemma falseE (l : Type v) [Monad m] [CompleteLattice l] [MPropOrdered m l] : ⌜False⌝ = ⊥ := by
+  apply le_antisymm; apply MPropOrdered.μ_bot
+  simp
+
+
 lemma MProp.pure_imp {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m]
   [PartialOrder l] [MPropOrdered m l]
   (p₁ p₂ : Prop) : (p₁ -> p₂) -> ⌜p₁⌝ <= ⌜p₂⌝ := by
@@ -123,3 +134,9 @@ class MPropDetertministic (l : outParam (Type v)) [Monad m] [CompleteLattice l] 
   demonic {α ι : Type v} (c : m α) (p : ι -> α -> l) [Nonempty ι] : ⨅ i, MProp.lift c (p i) ≤ MProp.lift c (fun x => ⨅ i, p i x)
   /-- 😇 -/
   angelic {α ι : Type v} (c : m α) (p : ι -> α -> l) [Nonempty ι] : MProp.lift c (fun x => ⨆ i, p i x) ≤ ⨆ i, MProp.lift c (p i)
+
+class HasMProp (m : Type v -> Type u) (l : outParam (Type v)) : Prop
+
+instance (l : outParam (Type v)) [Monad m] [MProp m l] : HasMProp m l where
+-- class MPropTotal (l : outParam (Type v)) [Monad m] [CompleteLattice l] [MPropOrdered m l] where
+--   μ_total α (c : m α) : MProp.μ ((fun _ => False) <$> c) = ⊥

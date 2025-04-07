@@ -11,18 +11,7 @@ variable [inst: CompleteBooleanAlgebra l] [mprop: MPropOrdered m l]
 
 instance : SemilatticeInf l := inst.toSemilatticeInf
 
-omit [LawfulMonad m] in
-@[simp]
-lemma trueE : ⌜True⌝ = ⊤ := by
-  apply le_antisymm; exact OrderTop.le_top ⌜True⌝
-  apply MPropOrdered.μ_top
-
-omit [LawfulMonad m] in
-@[simp]
-lemma falseE : ⌜False⌝ = ⊥ := by
-  apply le_antisymm; apply MPropOrdered.μ_bot
-  simp
-
+attribute [simp] trueE falseE
 @[local simp]
 private lemma compl_fun {α} (x y : α -> l) :
   (fun a => x a ⊔ y a)ᶜ = (fun a => (x a)ᶜ ⊓ (y a)ᶜ) := by simp [compl]
@@ -40,7 +29,10 @@ private lemma compl_fun'' {α} (x : α -> l) :
 private lemma compl_fun_true {α} :
   (fun (_ : α) => ⊤)ᶜ = fun _ => (⊥ : l) := by simp [compl]
 
-def wlp (c : m α) (post : α -> l) : l := (wp c postᶜ)ᶜ ⊔ wp c post
+@[simp]
+abbrev iwp (c : m α) (post : α -> l) : l := (wp c postᶜ)ᶜ
+
+def wlp (c : m α) (post : α -> l) : l := iwp c post ⊔ wp c post
 
 @[simp]
 lemma wlp_true (c : m α) : wlp c (fun _ => ⊤) = ⊤ := by
@@ -115,47 +107,68 @@ lemma wlp_himp (c : m α) (post post' : α -> l) :
     refine le_sup_of_le_right ?_
     simp
 
+lemma wlp_join_wp (c : m α) (post post' : α -> l) :
+  wlp c post ⊓ wp c post' = wp c (fun x => post x ⊓ post' x) := by
+  apply le_antisymm
+  { rw [← @le_himp_iff', <-wlp_himp];
+    apply wp_cons; simp }
+  simp; constructor
+  { apply le_trans'; apply wp_wlp; apply wp_cons; simp }
+  apply wp_cons; simp
+
 lemma wp_top_wlp (c : m α) (post : α -> l) :
   wp c ⊤ ⊓ wlp c post = wp c post := by
+  rw [inf_comm, wlp_join_wp]; simp
+
+lemma wp_top_iwp (c : m α) (post : α -> l) :
+  wp c ⊥ = ⊥ ->
+  wp c ⊤ ⊓ iwp c post = wp c post := by
+  intro wpb
   apply le_antisymm
-  { rw [inf_comm, ← @le_himp_iff', <-wlp_himp]; simp; rfl }
+  { simp; simp [<-le_himp_iff, himp_eq, <-wp_or]; rfl }
   simp; constructor
   { apply wp_cons; simp }
-  apply wp_wlp
+  rw [@le_compl_iff_disjoint_left]; intro; intro _ _
+  apply le_trans'; rewrite [<- wpb];
+  rw [<-compl_inf_eq_bot (a := post)]
+  erw [wp_and]; simp; solve_by_elim
 
-section ExceptT
+abbrev wpHandleWith {ε} (hd : ε -> Prop) [IsHandler hd] (c : ExceptT ε m α) post := wp c post
 
-abbrev noFailure (m : Type u -> Type v) (l : Type u)
-  [Monad m] [MProp m l] [CompleteLattice l] := ∀ α (c : m α), wp c ⊤ = ⊤
-
-variable {ε : Type u}
-
--- open PartialCorrectness
 
 omit [MPropDetertministic m l] in
-lemma wp_except_part_eq (c : ExceptTPart ε m α) post :
+lemma wp_except_handler_eq ε (hd : ε -> Prop) [IsHandler hd] (c : ExceptT ε m α) post :
+  wp c post = wp (m := m) c (fun | .ok x => post x | .error e => ⌜hd e⌝) := by
+    simp [wp, liftM, monadLift, MProp.lift]
+    simp [OfHd, MPropExcept, bind, ExceptT.bind, ExceptT.mk]
+    unfold ExceptT.bindCont; simp;
+    apply MPropOrdered.bind; ext a; cases a <;> simp [Except.getD]
+    rw [MPropOrdered.μ_surjective]; rfl
+
+
+open PartialCorrectness in
+omit [MPropDetertministic m l] in
+lemma wp_part_eq ε (c : ExceptT ε m α) post :
   wp c post = wp (m := m) c (fun | .ok x => post x | .error _ => ⊤) := by
-    simp [wp, liftM, monadLift, MProp.lift]
-    simp [instMPropOrderedExceptTPartOfLawfulMonad, MPropExcept, bind, ExceptT.bind, ExceptT.mk]
-    unfold ExceptT.bindCont; simp;
-    apply MPropOrdered.bind; ext a; cases a <;> simp [Except.getD]
-    rw [MPropOrdered.μ_surjective]; apply trueE
+    simp [wp_except_handler_eq]
 
--- open TotalCorrectness
-
+open TotalCorrectness in
 omit [MPropDetertministic m l] in
-lemma wp_except_tot_eq (c : ExceptTTot ε m α) post :
+lemma wp_tot_eq ε (c : ExceptT ε m α) post :
   wp c post = wp (m := m) c (fun | .ok x => post x | .error _ => ⊥) := by
-    simp [wp, liftM, monadLift, MProp.lift]
-    simp [instMPropOrderedExceptTTotOfLawfulMonad, MPropExcept, bind, ExceptT.bind, ExceptT.mk]
-    unfold ExceptT.bindCont; simp;
-    apply MPropOrdered.bind; ext a; cases a <;> simp [Except.getD]
-    rw [MPropOrdered.μ_surjective]; apply falseE
+    simp [wp_except_handler_eq]
 
-variable (wp_bot : noFailure m l)
-include wp_bot
+set_option quotPrecheck false in
+notation "[totl|" t "]" => open TotalCorrectness in t
+set_option quotPrecheck false in
+notation "[part|" t "]" => open PartialCorrectness in t
 
-lemma wp_compl (c : m α) post :
+lemma wp_tot_part ε (c : ExceptT ε m α) post :
+  [totl| wp c ⊤] ⊓ [part| wp c post] = [totl| wp c post] := by
+  rw [wp_part_eq, wp_tot_eq, wp_tot_eq, <-wp_and]
+  congr; ext x; cases x <;> simp
+
+lemma wp_compl (c : m α) post (wp_bot : ∀ α (c : m α), wp c ⊤ = ⊤) :
   (wp c postᶜ)ᶜ <= wp c post := by
     refine compl_le_iff_compl_le.mp ?_
     rw [← @codisjoint_iff_compl_le_right]; intro b
@@ -163,17 +176,60 @@ lemma wp_compl (c : m α) post :
     apply wp_cons; intro a; apply BooleanAlgebra.top_le_sup_compl (x := post)
     erw [wp_or]; simp_all
 
-lemma wp_part_eq_wlp (c : ExceptTTot ε m α) (post : α -> l) :
-  wp c.toPart post = wlp c post := by
-    simp [wlp, wp_except_tot_eq, wp_except_part_eq]
+lemma wp_compl' (c : m α) post (wp_bot : ∀ α (c : m α), wp c ⊥ = ⊥) :
+  wp c post <= (wp c postᶜ)ᶜ := by
+  have : wp c post = ⊤ ⊓ wp c post := by simp
+  rw [this, <-le_himp_iff, himp_eq]; rw [← @compl_inf, <-wp_and]; simp
+  solve_by_elim
+
+
+
+lemma wp_tot_eq_iwp_part ε (c : ExceptT ε m α) (post : α -> l)
+   (wp_bot : ∀ α (c : m α), wp c ⊥ = ⊥)
+   (wp_top : ∀ α (c : m α), wp c ⊤ = ⊤) :
+   [totl| wp c post] = [part| iwp c post] := by
+    simp only [iwp, wp_tot_eq, wp_part_eq]
     apply le_antisymm <;> try simp
-    { rw [sup_comm, <-himp_eq]; simp; erw [<-wp_and]
+    { apply le_trans; apply wp_compl'; simp [*]
+      simp; apply wp_cons; rintro (_|_) <;> simp }
+    apply le_trans'; apply wp_compl; simp [*]
+    simp; apply wp_cons; rintro (_|_) <;> simp
+
+private lemma le_coml_sup (x y z : l) :
+  y <= x ⊔ z -> xᶜ <= yᶜ ⊔ z := by
+  intro h;
+  rw [sup_comm, <-himp_eq]; simp
+  rw [inf_comm, <-le_himp_iff, himp_eq]; simp
+  rwa [sup_comm]
+
+lemma wlp_part_wlp_handler ε (α : Type u) (c : ExceptT ε m α) (post : α → l) (hd : ε -> Prop) :
+  [part| wlp c post] =
+  wlp (mprop := OfHd (hd := hd) (m := m) (l := l) (hdInst := ⟨⟩)) c post := by
+    simp [wlp, wp_part_eq, wp_except_handler_eq]
+    apply le_antisymm <;> simp
+    { constructor
+      { apply le_coml_sup; rw [<-wp_or]; apply wp_cons
+        rintro (_|_) <;> simp }
+      rw [sup_comm, <-himp_eq]; simp [<-wp_and]
       apply wp_cons; rintro (_|_) <;> simp }
     constructor
-    { apply le_trans'; apply wp_compl; assumption
-      simp; apply wp_cons; rintro (_|_) <;> simp }
+    { apply le_coml_sup; rw [<-wp_or]; apply wp_cons
+      rintro (_|_) <;> simp }
+    rw [sup_comm, <-himp_eq]; simp [<-wp_and]
     apply wp_cons; rintro (_|_) <;> simp
 
-end ExceptT
 
-end Determenism
+-- lemma wp_part_eq_wlp (c : ExceptTTot ε m α) (post : α -> l) :
+--   wp c.toPart post = wlp c post := by
+--     simp [wlp, wp_tot_eq, wp_except_part_eq]
+--     apply le_antisymm <;> try simp
+--     { rw [sup_comm, <-himp_eq]; simp; erw [<-wp_and]
+--       apply wp_cons; rintro (_|_) <;> simp }
+--     constructor
+--     { apply le_trans'; apply wp_compl; assumption
+--       simp; apply wp_cons; rintro (_|_) <;> simp }
+--     apply wp_cons; rintro (_|_) <;> simp
+
+-- end ExceptT
+
+-- end Determenism
