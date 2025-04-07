@@ -8,21 +8,19 @@ set_option autoImplicit true
 namespace Veil
 
 
-abbrev ExecDet (σ ρ : Type) := ExceptT String (StateT σ Id) ρ
+abbrev ExecDet (σ ρ : Type) := ExceptT Int (StateT σ Id) ρ
 abbrev Exec (σ ρ : Type) := NonDetT (ExecDet σ) ρ
 
+def assertionFailedId : Int := 0
+def otherId : Int := 1
 -- #gen_spec assertE' (σ α : Type) for
 --   wp (m := ExecDet σ) (α := α) (StateT.lift (.mk (.error "assertion failed")))
-open TotalCorrectness in
-#gen_spec Total.getE (σ : Type) for wp (liftM (m := StateT σ Id) (n :=  ExecDet σ) (StateT.get))
-open TotalCorrectness in
-#gen_spec Total.setE (σ : Type) (s : σ) for wp (liftM (m := StateT σ Id) (n :=  ExecDet σ) (StateT.set s))
-open PartialCorrectness in
-#gen_spec Partial.getE (σ : Type) for wp (liftM (m := StateT σ Id) (n :=  ExecDet σ) (StateT.get))
-open PartialCorrectness in
-#gen_spec Partial.setE (σ : Type) (s : σ) for wp (liftM (m := StateT σ Id) (n :=  ExecDet σ) (StateT.set s))
+section
+-- variable
+#gen_spec getE (σ : Type) (hd : Int -> Prop) (hd' : IsHandler hd) for wp (liftM (m := StateT σ Id) (n :=  ExecDet σ) (StateT.get))
+#gen_spec setE (σ : Type) (s : σ) (hd : Int -> Prop) (hd' : IsHandler hd) for wp (liftM (m := StateT σ Id) (n :=  ExecDet σ) (StateT.set s))
 
-
+end
 
 lemma iInfE : iInf (α := σ -> Prop) f = fun x => ∀ y, f y x := by ext; simp
 lemma iSupE : iSup (α := σ -> Prop) f = fun x => ∃ y, f y x := by ext; simp
@@ -41,9 +39,8 @@ lemma if_app {α β} p [Decidable p] (t e : α -> β)  : (if p then t else e) = 
 lemma not_if {_ : Decidable p} (t e : Prop) : (¬ (if p then t else e)) = if p then ¬ t else ¬ e := by
   split_ifs <;> simp
 
-def assert (as : Prop) [Decidable as] [Monad m] [MonadExcept String m] : m Unit := do
-  do unless as do throw "assertion failed"
-
+def assert (as : Prop) [Decidable as] [Monad m] [MonadExcept Int m] : m Unit := do
+  do unless as do throw assertionFailedId
 
 lemma assertE {σ} (as : Prop) [Decidable as] :
   assert (m := Exec σ) as = liftM (assert (m := ExecDet σ) as) := by sorry
@@ -55,107 +52,47 @@ section
 -- open Demonic
 -- namespace Demonic
 
-open Demonic TotalCorrectness in
+open Demonic in
 @[wpSimp]
-lemma wpAssertE [Decidable as] :
-  wp (assert (m := Exec σ) as) post = fun s => as ∧ post .unit s := by
+lemma wpAssertED [Decidable as] (hd : Int -> Prop) (_ : IsHandler hd) :
+  wp (assert (m := Exec σ) as) post = fun s => if as then post .unit s else hd assertionFailedId := by
     simp [assertE, NonDetT.wp_lift]
     simp [assert]; split_ifs <;> try simp [wpSimp, wp_pure]
-    { ext s; constructor <;> simp_all }
     simp [throw, throwThe, MonadExceptOf.throw, ExceptT.mk]
-    erw [wp_tot_eq, wp_pure]; simp_all; rfl
+    erw [wp_except_handler_eq, wp_pure]; simp_all; rfl
 
-open Demonic PartialCorrectness in
+open Angelic in
 @[wpSimp]
-lemma PartialD.wpAssertE [Decidable as] :
-  wp (assert (m := Exec σ) as) post = fun s => as -> post .unit s := by
+lemma wpAssertEA [Decidable as] (hd : Int -> Prop) (_ : IsHandler hd) :
+  wp (assert (m := Exec σ) as) post = fun s => if as then post .unit s else hd assertionFailedId := by
     simp [assertE, NonDetT.wp_lift]
     simp [assert]; split_ifs <;> try simp [wpSimp, wp_pure]
-    { ext s; constructor <;> simp_all }
     simp [throw, throwThe, MonadExceptOf.throw, ExceptT.mk]
-    erw [wp_part_eq, wp_pure]; simp_all; rfl
+    erw [wp_except_handler_eq, wp_pure]; simp_all; rfl
 
-open Angelic TotalCorrectness in
+open Demonic in
 @[wpSimp]
-lemma wpAssertEA [Decidable as] :
-  wp (assert (m := Exec σ) as) post = fun s => as ∧ post .unit s := by
-    simp [assertE, NonDetT.wp_lift]
-    simp [assert]; split_ifs <;> try simp [wpSimp, wp_pure]
-    { ext s; constructor <;> simp_all }
-    simp [throw, throwThe, MonadExceptOf.throw, ExceptT.mk]
-    erw [wp_tot_eq, wp_pure]; simp_all; rfl
-
-open Angelic PartialCorrectness in
-@[wpSimp]
-lemma PartialD.wpAssertEA [Decidable as] :
-  wp (assert (m := Exec σ) as) post = fun s => as -> post .unit s := by
-    simp [assertE, NonDetT.wp_lift]
-    simp [assert]; split_ifs <;> try simp [wpSimp, wp_pure]
-    { ext s; constructor <;> simp_all }
-    simp [throw, throwThe, MonadExceptOf.throw, ExceptT.mk]
-    erw [wp_part_eq, wp_pure]; simp_all; rfl
-
-open Demonic TotalCorrectness in
-@[wpSimp]
-lemma Total.wpGetE :
+lemma wpGetED (hd : Int -> Prop) (_ : IsHandler hd) :
   wp (get (m := Exec σ)) post = fun s => post s s := by
     ext s; simp only [get, getThe, MonadStateOf.get, @NonDetT.wp_lift, wpSimp]
 
-open Demonic PartialCorrectness in
+open Angelic in
 @[wpSimp]
-lemma PartialD.wpGetE :
+lemma wpGetEA (hd : Int -> Prop) (_ : IsHandler hd) :
   wp (get (m := Exec σ)) post = fun s => post s s := by
     ext s; simp only [get, getThe, MonadStateOf.get, @NonDetT.wp_lift, wpSimp]
 
-open Angelic TotalCorrectness in
+open Demonic in
 @[wpSimp]
-lemma TotalA.wpGetE :
-  wp (get (m := Exec σ)) post = fun s => post s s := by
-    ext s; simp only [get, getThe, MonadStateOf.get, @NonDetT.wp_lift, wpSimp]
-
-open Angelic PartialCorrectness in
-@[wpSimp]
-lemma PartialA.wpGetE :
-  wp (get (m := Exec σ)) post = fun s => post s s := by
-    ext s; simp only [get, getThe, MonadStateOf.get, @NonDetT.wp_lift, wpSimp]
-
-
-open Demonic TotalCorrectness in
-@[wpSimp]
-lemma Total.wpSetE :
+lemma wpSetED (hd : Int -> Prop) (_ : IsHandler hd) :
   wp (set (σ := σ) (m := Exec σ) s) post = fun _ => post .unit s := by
     ext s; simp only [set, MonadStateOf.set, NonDetT.wp_lift, wpSimp]
 
-open Demonic PartialCorrectness in
+open Angelic in
 @[wpSimp]
-lemma Partial.wpSetE :
+lemma wpSetEA (hd : Int -> Prop) (_ : IsHandler hd) :
   wp (set (σ := σ) (m := Exec σ) s) post = fun _ => post .unit s := by
     ext s; simp only [set, MonadStateOf.set, NonDetT.wp_lift, wpSimp]
-
-open Angelic TotalCorrectness in
-@[wpSimp]
-lemma TotalA.wpSetE :
-  wp (set (σ := σ) (m := Exec σ) s) post = fun _ => post .unit s := by
-    ext s; simp only [set, MonadStateOf.set, NonDetT.wp_lift, wpSimp]
-
-open Angelic PartialCorrectness in
-@[wpSimp]
-lemma PartialA.wpSetE :
-  wp (set (σ := σ) (m := Exec σ) s) post = fun _ => post .unit s := by
-    ext s; simp only [set, MonadStateOf.set, NonDetT.wp_lift, wpSimp]
-
-
-open Demonic TotalCorrectness in
-@[wpSimp]
-lemma Total.wp_if (p : Prop) [Decidable p] (t e : Exec σ α) :
-  wp (if p then t else e) post = fun s => if p then wp t post s else wp e post s := by
-    unfold wp; split_ifs <;> rfl
-
-open Demonic PartialCorrectness in
-@[wpSimp]
-lemma Partial.wp_if (p : Prop) [Decidable p] (t e : Exec σ α) :
-  wp (if p then t else e) post = fun s => if p then wp t post s else wp e post s := by
-    unfold wp; split_ifs <;> rfl
 
 -- end Demonic
 end
@@ -177,6 +114,21 @@ def nonDet : Exec Nat Unit := do
       assume False
     else
       set ((<-get) - 1)
+
+def nonDet' : Exec Nat Unit := do
+  let b₁ <- pick Bool
+  let b₂ <- pick Bool
+  if b₁ then
+    if b₂ then
+      assert False
+    else
+      set ((<-get) + 1)
+  else
+    if b₂ then
+      throw otherId
+    else
+      set ((<-get) - 1)
+
 
 example (P : _ -> Prop) : P nonDet.finally := by
   simp only [nonDet, NonDetT.ite_eq, assertE, pureE]
@@ -209,9 +161,30 @@ example (P : _ -> Prop) : P (wp nonDet post) := by
   simp [nonDet, -NonDetT.ite_eq, wpSimp, iInfE]
   sorry
 
-open PartialCorrectness in
+section
+open PartialCorrectness
 example (P : _ -> Prop) : P (wp nonDet post) := by
   simp [nonDet, -NonDetT.ite_eq, wpSimp, iInfE]
+  sorry
+
+example (P : _ -> Prop) : P (iwp nonDet post) := by
+  simp [iwp, nonDet, -NonDetT.ite_eq, wpSimp, iInfE, complE]
+  sorry
+
+def tr (c : Exec σ α) (s s' : σ) (r' : α) := iwp c (· = r' ∧ · = s') s
+
+example (P : _ -> Prop) : P (tr nonDet s s') := by
+  unfold tr
+  simp [iwp, nonDet, -NonDetT.ite_eq, wpSimp, iSupE]
+  sorry
+end
+
+open Demonic
+example (ex : Int)  s : [handler (· ≠ ex)|wp nonDet' ⊤ s ] := by
+  simp [nonDet', -NonDetT.ite_eq, wpSimp, iSupE, throw, throwThe, MonadExceptOf.throw, ExceptT.mk,
+    NonDetT.wp_lift]
+  erw [wp_except_handler_eq, wp_pure, MPropOrdered.pure, pure, Applicative.toPure, Monad.toApplicative];
+  simp [StateT.instMonad,MPropOrdered.μ, StateT.pure]
   sorry
 
 
@@ -228,10 +201,10 @@ example (P : _ -> Prop) : P (wp nonDet post) := by
   simp [nonDet, -NonDetT.ite_eq, wpSimp, iSupE]
   sorry
 
-def tr (c : Exec σ α) (s s' : σ) (r' : α) := wp c (· = r' ∧ · = s') s
+def tr' (c : Exec σ α) (s s' : σ) (r' : α) := wp c (· = r' ∧ · = s') s
 
-example (P : _ -> Prop) : P (tr nonDet s s') := by
-  unfold tr
+example (P : _ -> Prop) : P (tr' nonDet s s') := by
+  unfold tr'
   simp [nonDet, -NonDetT.ite_eq, wpSimp, iSupE]
   sorry
 
