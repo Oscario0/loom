@@ -1,6 +1,6 @@
 import Mathlib.Order.CompleteBooleanAlgebra
 
-import LoL.MProp.EffectObservations
+import LoL.MonadAlgebras.Instances
 
 universe u v w
 
@@ -15,8 +15,8 @@ def wp (c : m α) (post : α -> l) : l := liftM (n := Cont l) c post
 def triple (pre : l) (c : m α) (post : α -> l) : Prop :=
   pre ≤ wp c post
 
-abbrev mtriple (pre : m UProp) (c : m α) (post : α -> m UProp) : Prop :=
-  triple (MProp.μ pre) c (MProp.μ ∘ post)
+-- abbrev mtriple (pre : m UProp) (c : m α) (post : α -> m UProp) : Prop :=
+--   triple (MProp.μ pre) c (MProp.μ ∘ post)
 
 lemma wp_pure (x : α) (post : α -> l) : wp (m := m) (pure x) post = post x := by
   simp [wp, liftM, lift_pure]
@@ -27,10 +27,10 @@ lemma triple_pure (pre : l) (x : α) (post : α -> l) :
   := by
     rw [triple, wp]; simp [liftM, lift_pure]; rfl
 
-lemma mtriple_pure (pre : m UProp) (x : α) (post : α -> m UProp) :
-  mtriple pre (pure x) post <->
-  MProp.μ pre ≤ MProp.μ (post x)
-  := by exact triple_pure (MProp.μ pre) x (MProp.μ ∘ post)
+-- lemma mtriple_pure (pre : m UProp) (x : α) (post : α -> m UProp) :
+--   mtriple pre (pure x) post <->
+--   MProp.μ pre ≤ MProp.μ (post x)
+--   := by exact triple_pure (MProp.μ pre) x (MProp.μ ∘ post)
 end
 
 variable [MPropOrdered m l]
@@ -53,61 +53,58 @@ lemma triple_bind {β} (pre : l) (x : m α) (cut : α -> l)
     intros; simp [triple, wp_bind]
     solve_by_elim [le_trans', wp_cons]
 
-lemma mtriple_bind {β} (pre : m UProp) (x : m α) (cut : α -> m UProp)
-  (f : α -> m β) (post : β -> m UProp) :
-  mtriple pre x cut ->
-  (∀ y, mtriple (cut y) (f y) post) ->
-  mtriple pre (x >>= f) post := by apply triple_bind
+-- lemma mtriple_bind {β} (pre : m UProp) (x : m α) (cut : α -> m UProp)
+--   (f : α -> m β) (post : β -> m UProp) :
+--   mtriple pre x cut ->
+--   (∀ y, mtriple (cut y) (f y) post) ->
+--   mtriple pre (x >>= f) post := by apply triple_bind
 
-theorem triple_forIn_list {α β}
-  {xs : List α} {init : β} {f : α → β → m (ForInStep β)}
-  (inv : List α → β → m UProp)
-  (hstep : ∀ hd tl b,
-    mtriple
-      (inv (hd :: tl) b)
-      (f hd b)
-      (fun | .yield b' => inv tl b' | .done b' => inv [] b')) :
-  mtriple (inv xs init) (forIn xs init f) (inv []) := by
-    induction xs generalizing init
-    { simp; rw [mtriple_pure] }
-    simp only [List.forIn_cons]
-    apply mtriple_bind; apply hstep; intros y
-    cases y <;> simp <;> solve_by_elim [(mtriple_pure ..).mpr, le_refl]
+-- theorem triple_forIn_list {α β}
+--   {xs : List α} {init : β} {f : α → β → m (ForInStep β)}
+--   (inv : List α → β → m UProp)
+--   (hstep : ∀ hd tl b,
+--     mtriple
+--       (inv (hd :: tl) b)
+--       (f hd b)
+--       (fun | .yield b' => inv tl b' | .done b' => inv [] b')) :
+--   mtriple (inv xs init) (forIn xs init f) (inv []) := by
+--     induction xs generalizing init
+--     { simp; rw [mtriple_pure] }
+--     simp only [List.forIn_cons]
+--     apply mtriple_bind; apply hstep; intros y
+--     cases y <;> simp <;> solve_by_elim [(mtriple_pure ..).mpr, le_refl]
 
-theorem μ_bind_wp (c : m α) (mpost : α -> m UProp) :
-  MProp.μ (l := l) (c >>= mpost) = wp c (MProp.μ ∘ mpost) := by
-    simp [wp, liftM, monadLift, MProp.lift]; apply MPropOrdered.bind; ext; simp
-    rw [MPropOrdered.μ_surjective]
+-- theorem μ_bind_wp (c : m α) (mpost : α -> m UProp) :
+--   MProp.μ (l := l) (c >>= mpost) = wp c (MProp.μ ∘ mpost) := by
+--     simp [wp, liftM, monadLift, MProp.lift]; apply MPropOrdered.bind; ext; simp
+--     rw [MPropOrdered.μ_surjective]
 
 end
 
 
 section
-variable [SemilatticeInf l] [MPropOrdered m l]
+variable [CompleteLattice l] [MPropOrdered m l]
 
+noncomputable
 def spec (pre : l) (post : α -> l) : Cont l α :=
   fun p => pre ⊓ ⌜post ≤ p⌝
 
-def mspec (pre : m UProp) (post : α -> m UProp) : Cont l α :=
-  spec (m := m) (MProp.μ pre) (MProp.μ ∘ post)
-
 lemma triple_spec (pre : l) (c : m α) (post : α -> l) :
-  spec (m := m) pre post <= wp c <->
+  spec pre post <= wp c <->
   triple pre c post := by
     constructor
     { intro h; unfold triple
       specialize h post; apply le_trans'; apply h
-      unfold spec; simp
-      apply MPropOrdered.μ_top }
+      unfold spec; simp [trueE] }
     intro t p; unfold spec
     by_cases h: post ≤ p
     { apply inf_le_of_left_le; apply le_trans; apply t
       solve_by_elim [Cont.monotone_lift (x := c)] }
-    apply inf_le_of_right_le; apply le_trans'; apply MPropOrdered.μ_bot (m := m)
-    apply MPropOrdered.μ_ord_pure; solve_by_elim
+    have : (post ≤ p) = False := by simp [h]
+    simp [this, falseE]
 
-lemma mtriple_mspec (pre : m UProp) (c : m α) (post : α -> m UProp) :
-  mspec pre post ≤ wp c <-> mtriple pre c post := by apply triple_spec
+-- lemma mtriple_mspec (pre : m UProp) (c : m α) (post : α -> m UProp) :
+--   mspec pre post ≤ wp c <-> mtriple pre c post := by apply triple_spec
 
 -- class abbrev MonadLogic (m : Type u -> Type v) (l : Type u) [Monad m] := Logic l, MPropPartialOrder m l
 end

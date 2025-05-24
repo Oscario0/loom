@@ -359,7 +359,7 @@ def existentialIdents (stx : TSyntax `Lean.explicitBinders) : MetaM (TSyntaxArra
   | _ => throwError "unexpected syntax in explicit binder: {stx}"
   return vars
 
-register_simp_attr wpSimp
+-- register_simp_attr wpSimp
 
 elab "#gen_spec" name:ident args:explicitBinders ? "for" prim:term : command => do
   liftTermElabM do
@@ -384,5 +384,5 @@ elab "#gen_spec" name:ident args:explicitBinders ? "for" prim:term : command => 
     let tp := <- elabTermAndSynthesize (<- `(forall? $forallArgs*, $prim = $primRed $args*)) none
     let ⟨tp, _, _⟩ <- Expr.runSimp tp <| `(tactic| dsimp only)
     let module <- getCurrNamespace
-    simpleAddThm (module ++ name.getId) tp pf (attr := #[{name := `wpSimp}])
+    simpleAddThm (module ++ name.getId) tp pf (attr := #[{name := `wpSimp} ])
     trace[debug] "Generated spec for {prim}:\n{tp}"

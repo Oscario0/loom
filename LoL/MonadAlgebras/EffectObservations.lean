@@ -36,7 +36,6 @@ class MPropOrdered (l : outParam (Type v)) [Monad m] [PartialOrder l] where
     ∀ (f g : α -> m l), μ ∘ f ≤ μ ∘ g ->
       ∀ x : m α, μ (x >>= f) ≤ μ (x >>= g)
 
-@[reducible]
 instance OfMPropPartialOrdered {m : Type u -> Type v} {l : Type u} [Monad m] [PartialOrder l] [mprop : MPropOrdered m l] : MProp m l where
   μ := MPropOrdered.μ
   pure := MPropOrdered.μ_ord_pure

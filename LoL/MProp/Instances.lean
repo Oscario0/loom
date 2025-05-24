@@ -247,27 +247,27 @@ end ExeceptHandler
 
 instance (g : Type) (l : Type u) (m : Type u -> Type v)
   [PartialOrder l]
-  [Monad m] [LawfulMonad m] 
-  [inst: MPropOrdered m l] : MPropOrdered (Plausible.RandGT g m) (ULift g -> l) := 
+  [Monad m] [LawfulMonad m]
+  [inst: MPropOrdered m l] : MPropOrdered (Plausible.RandGT g m) (ULift g -> l) :=
   inferInstanceAs (MPropOrdered (StateT (ULift g) m) (ULift g -> l))
 
 -- instance : MPropOrdered Plausible.Gen (ULift StdGen -> Prop) where
 --   μ m g := ∀ n, MPropOrdered.μ (m n) g
 --   ι p n := MPropOrdered.ι p
---   μ_surjective := by intro p; simp; ext; rfl 
---   μ_top := by 
+--   μ_surjective := by intro p; simp; ext; rfl
+--   μ_top := by
 --     intro p; simp [pure, ReaderT.pure, MPropOrdered.μ];
---     unfold StateT.pure; 
---     simp [pure]; intro g; simp 
---   μ_bot := by 
+--     unfold StateT.pure;
+--     simp [pure]; intro g; simp
+--   μ_bot := by
 --     intro p; simp [pure, ReaderT.pure, MPropOrdered.μ];
---     unfold StateT.pure; 
---     simp [pure]; intro g; simp 
---   μ_ord_pure := by 
+--     unfold StateT.pure;
+--     simp [pure]; intro g; simp
+--   μ_ord_pure := by
 --     intro p₁ p₂ imp; simp [pure, ReaderT.pure, MPropOrdered.μ];
---     unfold StateT.pure; 
+--     unfold StateT.pure;
 --     simp [pure]; intro g; simpa
---   μ_ord_bind := by 
+--   μ_ord_bind := by
 --     intro α f g le; simp [bind, ReaderT.bind, StateT.bind]
 --     intro g; simpa
 
