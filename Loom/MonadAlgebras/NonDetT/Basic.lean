@@ -211,7 +211,7 @@ end DemonicChoice
 namespace AngelicChoice
 
 noncomputable
-def   NonDetT.wp : {α : Type u} -> NonDetT m α -> Cont l α
+def   NonDetT.wp {l : Type u} [CompleteLattice l] [MPropOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
   | _, .pure ret => pure ret
   | _, .vis x f => fun post => _root_.wp x fun a => wp (f a) post
   | _, .pickCont _ p f => fun post => ⨆ a, ⌜p a⌝ ⊓ wp (f a) post
@@ -219,8 +219,7 @@ def   NonDetT.wp : {α : Type u} -> NonDetT m α -> Cont l α
     ⌜ ∀ b, (inv (ForInStep.yield b)) <= wp (f b) inv⌝ ⊓
     spec (inv (.yield init)) (fun b => inv (.done b)) (fun b => wp (cont b) post)
 
-omit [MPropOrdered m l] in
-lemma spec_mono {α : Type u} (pre : l) (post : α -> l) (f g : α -> l) :
+lemma spec_mono {α : Type u} {l : Type u} [CompleteLattice l] (pre : l) (post : α -> l) (f g : α -> l) :
   (∀ a, f a <= g a) ->
   spec pre post f <= spec pre post g := by
     unfold spec; intro
@@ -228,7 +227,7 @@ lemma spec_mono {α : Type u} (pre : l) (post : α -> l) (f g : α -> l) :
     refine LE.pure_imp (post ≤ f) (post ≤ g) ?_
     intro h a; apply le_trans; apply h a; solve_by_elim
 
-lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} (x : NonDetT m α) (f g : α -> l) :
+lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l] (x : NonDetT m α) (f g : α -> l) :
   (∀ a, f a <= g a) ->
   NonDetT.wp x f <= NonDetT.wp x g := by
     intro h; induction x
@@ -236,7 +235,7 @@ lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} (x : NonDetT m α) (f g : α
     <;> try solve_by_elim [wp_cons, le_iSup_of_le, inf_le_inf_left, iSup_mono]
     apply iSup_mono; intro inv
     solve_by_elim [wp_cons, spec_mono, inf_le_inf_left]
-lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} (x : NonDetT m α) (f : α -> NonDetT m β)
+lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l] (x : NonDetT m α) (f : α -> NonDetT m β)
   (post : β -> l):
   NonDetT.wp (x.bind f) post = NonDetT.wp x (fun x => NonDetT.wp (f x) post) := by
     unhygienic induction x
