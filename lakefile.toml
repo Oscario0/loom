@@ -9,7 +9,7 @@ pp.unicode.fun = true # pretty-prints `fun a ↦ b`
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.20.0-rc5"
+rev = "1755c0ff6d14a8b7818003c6f277a4410c2683bd"
 
 [[lean_lib]]
 name = "Loom"

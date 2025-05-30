@@ -1,1 +1,1 @@
-import Loom.MonadAlgebras.Examples
+import Loom.MonadAlgebras.Example
