@@ -36,20 +36,33 @@ instance [DecidableEq α] : Collection α (List α) where
   isEmpty := (List.isEmpty ·)
   isEmpty_prop := by simp [List.eq_nil_iff_forall_not_mem]
 
-def Collection.toSet (k₀ : κ) : NonDetT (StateT (α -> Bool) DevM) Unit := do
-  let mut k := k₀
-  while ¬ Collection.isEmpty k
-  invariant fun (s : α -> Bool) => ∀ x, Collection.mem x k₀ <-> s x ∨ Collection.mem x k
-  done_with ⌜∀ x, ¬ Collection.mem x k⌝ do
-    let a :| Collection.mem a k
-    k := del a k
-    modify (fun s a' => if a' = a then true else s a')
-    pure ()
+attribute [-simp] if_true_left Bool.if_true_left ite_eq_left_iff
+attribute [logicSimp] ite_self
+
+
+method Collection.toSet (mut k : κ) return (s : α -> Bool)
+  ensures ∀ x, s x = Collection.mem x k
+  do
+    let k₀ := k
+    let mut s := fun _ => false
+    while ¬ Collection.isEmpty k
+    invariant ∀ x, Collection.mem x k₀ <-> s x ∨ Collection.mem x k
+    done_with ∀ x, ¬ Collection.mem x k do
+      let a :| Collection.mem a k
+      k := del a k
+      s := fun x => if x = a then true else s x
+    return s
+  correct_by
+    by
+      cases col; simp;
+      dsimp [Collection.toSet]
+      mwp
+      { rintro ⟨k, s⟩; mwp; aesop }
+      aesop
 
 /--
 info: DevM.res
-  ((),
-   [(0, false),
+  ⟨[(0, false),
     (1, true),
     (2, true),
     (3, false),
@@ -58,10 +71,10 @@ info: DevM.res
     (6, false),
     (7, false),
     (8, false),
-    (9, false)])
+    (9, false)], ⟨[], ()⟩⟩
 -/
 #guard_msgs in
-#eval Collection.toSet [1,2,5] |>.run.run (fun _ => False)
+#eval Collection.toSet [1,2,5] |>.run
 
 end Collection
 
@@ -75,7 +88,7 @@ method spmv
   require ∀ i < mInd.size, mInd[i]!.size = mVal[i]!.size
   require out.size = mVal.size
   require ∀ i : ℕ, out[i]! = 0
-  ensures ∀ i < mInd.size, out[i]! = mVal[i]!.sumUpTo (fun j x => x * v[mInd[i]![j]!]!) mInd[i]!.size
+  ensures ∀ i < mInd.size, outNew[i]! = mVal[i]!.sumUpTo (fun j x => x * v[mInd[i]![j]!]!) mInd[i]!.size
   do
     let mut arrInd : Array ℕ := Array.replicate mInd.size 0
     while_some i :| i < arrInd.size ∧ arrInd[i]! < mInd[i]!.size
@@ -92,18 +105,18 @@ method spmv
       out[i] += val
       arrInd[i] += 1
     return
-  correct_by
-  by
+  correct_by by {
     simp; intros; dsimp [spmv]
     mwp
     { intros; mwp
       aesop
       }
-    aesop
+    aesop }
 
 
 /-
 
+step-by-step execution of the spmv method:
 
 out mVal     mInd     v
 0   [ A, B ] [ 0, 3 ] [ X, Y, Z, W ]
@@ -130,6 +143,8 @@ arrInd out     mVal     mInd     v
 arrInd out     mVal     mInd     v
 2       AX+BW  [ A, B ] [ 0, 3 ] [ X, Y, Z, W ]
 2       CY+DZ  [ C, D ] [ 1, 2 ] [ X, Y, Z, W ]
+
+explanation for sparse vector x sparse vector:
 
 https://chatgpt.com/c/68392ce7-3bc0-800c-8b6b-0f4708014701
 
