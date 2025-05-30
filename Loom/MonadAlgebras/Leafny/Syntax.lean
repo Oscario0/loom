@@ -32,7 +32,7 @@ syntax "(mut" ident ":" term ")" : leafny_binder
 syntax "require" termBeforeReqEnsDo : require_caluse
 syntax "ensures" termBeforeReqEnsDo : ensures_caluse
 
-syntax "leafny_def" ident leafny_binder* "return" "(" ident ":" term ")"
+syntax "method" ident leafny_binder* "return" "(" ident ":" term ")"
   (require_caluse )*
   (ensures_caluse)* "do" doSeq linebreak "correct_by" term : command
 
@@ -104,13 +104,13 @@ partial def expandLeafnyDoSeqItem (modIds : Array Ident) (stx : doSeqItem) : Ter
   | `(Term.doSeqItem| return $t) =>
     let mut ret <- `(term| ())
     for modId in modIds do
-      ret <- `(term| ($modId, $ret))
-    return #[<-`(Term.doSeqItem| return ($t, $ret))]
+      ret <- `(term| ⟨$modId, $ret⟩)
+    return #[<-`(Term.doSeqItem| return ⟨$t, $ret⟩)]
   | `(Term.doSeqItem| pure $t) =>
     let mut ret <- `(term| ())
     for modId in modIds do
-      ret <- `(term| ($modId, $ret))
-    return #[<-`(Term.doSeqItem| pure ($t, $ret))]
+      ret <- `(term| ⟨$modId, $ret⟩)
+    return #[<-`(Term.doSeqItem| pure ⟨$t, $ret⟩)]
   | `(Term.doSeqItem| if $h:ident : $t:term then $thn:doSeq else $els:doSeq) =>
     let thn <- expandLeafnyDoSeq modIds thn
     let els <- expandLeafnyDoSeq modIds els
@@ -172,9 +172,11 @@ def Array.andList (ts : Array (TSyntax `term)) : TermElabM (TSyntax `term) := do
       t <- `(term| $t ∧ $t')
     return t
 
+#check Stream
+
 elab_rules : command
   | `(command|
-  leafny_def $name:ident $binders:leafny_binder* return ( $retId:ident : $type:term )
+  method $name:ident $binders:leafny_binder* return ( $retId:ident : $type:term )
   $[require $req:term]*
   $[ensures $ens:term]* do $doSeq:doSeq
   correct_by $proof:term) => do
@@ -188,16 +190,16 @@ elab_rules : command
 
     let mut mods := #[]
     for modId in modIds do
-      let modIdOld := mkIdent <| modId.getId.appendAfter "_old"
-      let modOld <- `(Term.doSeqItem| let $modIdOld:ident := $modId:ident)
+      -- let modIdOld := mkIdent <| modId.getId.appendAfter "Old"
+      -- let modOld <- `(Term.doSeqItem| let $modIdOld:ident := $modId:ident)
       let mod <- `(Term.doSeqItem| let mut $modId:ident := $modId:ident)
-      mods := mods.push modOld |>.push mod
+      mods := mods.push mod
     let mutTypes ← getMutTypes binders
     let mut retType <- `(Unit)
-    for mutType in mutTypes do
-      retType <- `($mutType × $retType)
+    for mutType in mutTypes, modId in modIds do
+      retType <- `(($modId:ident : $mutType) × $retType)
     let defCmd <- `(command|
-      def $name $bindersIdents* : NonDetT DevM ($type × $retType) := do $mods* $doSeq*)
+      def $name $bindersIdents* : NonDetT DevM (($retId:ident : $type) × $retType) := do $mods* $doSeq*)
     let lemmaName := mkIdent <| name.getId.appendAfter "_lemma"
 
     let pre <- req.andList
@@ -205,7 +207,8 @@ elab_rules : command
 
     let mut ret <- `(term| ())
     for modId in modIds do
-      ret <- `(term| ($modId, $ret))
+      let modId := mkIdent <| modId.getId.appendAfter "New"
+      ret <- `(term| ⟨$modId, $ret⟩)
 
     let ids ← getIds binders
     let thmCmd <- `(command|
@@ -219,91 +222,3 @@ elab_rules : command
   elabCommand defCmd
   trace[Loom.debug] "{thmCmd}"
   elabCommand thmCmd
-
-
-open PartialCorrectness DemonicChoice
-
-leafny_def foo (mut x : ℕ) (mut y : ℕ) return (u : Unit)
-  require x = y
-  ensures x = y + 1
-  ensures u = u do
-  pure ()
-  correct_by by sorry
-
-#print foo_lemma
-
-leafny_def bar (mut x : ℕ) (z : ℕ) : Unit :=
-  x := x + z
-  let mut y := x
-  let u <- foo x y
-  foo y x
-  return u
-
-
-
-@[spec, wpSimp]
-def WPGen.pickSuchThat : WPGen (pickSuchThat τ p : NonDetT DevM τ) := by
-  refine ⟨fun post => ∀ t, p t -> post t, True, ?_⟩
-  intro post _; apply le_of_eq;
-  simp [MonadNonDet.wp_pickSuchThat, logicSimp]
-
-attribute [aesop safe cases] Decidable
-attribute [-simp] if_true_left Bool.if_true_left ite_eq_left_iff
-attribute [logicSimp] ite_self
-attribute [aesop unsafe 20% apply] le_antisymm
-
-@[simp]
-lemma Array.replicate_get (n : ℕ) [Inhabited α] (a : α) (i : ℕ) (_ : i < n := by omega) :
-  (Array.replicate n a)[i]! = a := by
-  rw [getElem!_pos, Array.getElem_replicate]; aesop
-
-@[simp]
-lemma Array.modify_get (a : Array α) [Inhabited α] (i j : ℕ) (f : α -> α) :
-  (a.modify i f)[j]! = if j < a.size then if j = i then f a[j]! else a[j]! else default := by
-  by_cases h : j < a.size
-  { (repeat rw [getElem!_pos]) <;> try solve | aesop
-    rw [@getElem_modify]; aesop }
-  repeat rw [getElem!_neg]
-  all_goals (try split) <;> solve | omega | aesop
-
-def Array.sumUpTo [Inhabited α] [AddCommMonoid β] (a : Array α) (f : ℕ -> α -> β) (bound : ℕ) : β :=
-  ∑ i ∈ Finset.range bound, f i a[i]!
-
-@[simp]
-lemma Array.sumUpToSucc [Inhabited α] [AddCommMonoid α] (a : Array α) (f : ℕ -> α -> α) (bound : ℕ) :
-  a.sumUpTo f (bound + 1) = a.sumUpTo f bound + f bound a[bound]! := by
-  simp [sumUpTo]
-  rw [@Finset.sum_range_succ]
-
-variable [Inhabited α] [Ring α]
-leafny_def spmv
-  (mInd : Array (Array ℕ))
-  (mVal : Array (Array α))
-  (v : Array α) (mut out : Array α) return (u : Unit)
-  require mInd.size = mVal.size
-  require ∀ i < mInd.size, mInd[i]!.size = mVal[i]!.size
-  require out.size = mVal.size
-  require ∀ i : ℕ, out[i]! = 0
-  ensures ∀ i < mInd.size, out[i]! = mVal[i]!.sumUpTo (fun j x => x * v[mInd[i]![j]!]!) mInd[i]!.size
-  do
-    let mut arrInd : Array ℕ := Array.replicate mInd.size 0
-    while_some i :| i < arrInd.size ∧ arrInd[i]! < mInd[i]!.size
-    invariant arrInd.size = mVal.size
-    invariant out.size = mVal.size
-    invariant ∀ i < arrInd.size, arrInd[i]! <= (mInd[i]!).size
-    invariant ∀ i < arrInd.size, out[i]! = mVal[i]!.sumUpTo (fun j x => x * v[mInd[i]![j]!]!) arrInd[i]!
-    done_with ∀ i < arrInd.size, arrInd[i]! = mInd[i]!.size do
-      let ind := arrInd[i]!
-      let vInd := mInd[i]![ind]!
-      let mVal := mVal[i]![ind]!
-      let val := mVal * v[vInd]!
-      out[i] += val
-      arrInd[i] += 1
-    return ()
-  correct_by by
-    simp; intros; dsimp [spmv]
-    mwp
-    { intros; mwp; aesop }
-    aesop
-
-#print spmv_lemma
