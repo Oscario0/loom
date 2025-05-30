@@ -73,8 +73,8 @@ def attrIgnoreAuxDef (name : Name) (default : AttrM α) (x : AttrM α) : AttrM �
     x
 
 initialize registerTraceClass `Loom (inherited := true)
-register_simp_attr logicSimp
-register_simp_attr wpSimp
+register_simp_attr loomLogicSimp
+register_simp_attr loomWpSimp
 
 
 

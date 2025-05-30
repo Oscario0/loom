@@ -28,15 +28,15 @@ open PartialCorrectness DemonicChoice
 --   foo y x
 --   return u
 
-@[spec, wpSimp]
+@[spec, loomWpSimp]
 def WPGen.pickSuchThat : WPGen (pickSuchThat τ p : NonDetT DevM τ) := by
   refine ⟨fun post => ∀ t, p t -> post t, True, ?_⟩
   intro post _; apply le_of_eq;
-  simp [MonadNonDet.wp_pickSuchThat, logicSimp]
+  simp [MonadNonDet.wp_pickSuchThat, loomLogicSimp]
 
 attribute [aesop safe cases] Decidable
 attribute [-simp] if_true_left Bool.if_true_left ite_eq_left_iff
-attribute [logicSimp] ite_self
+attribute [loomLogicSimp] ite_self
 attribute [aesop unsafe 20% apply] le_antisymm
 
 @[simp]

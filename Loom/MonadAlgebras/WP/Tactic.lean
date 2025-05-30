@@ -65,50 +65,50 @@ macro "wpgen" : tactic => `(tactic| (
   repeat' wpgen_step
   ))
 
-macro "mwp" : tactic => `(tactic| ((try dsimp); wpgen <;> try simp only [logicSimp, wpSimp, invariants, List.foldr]))
+macro "mwp" : tactic => `(tactic| ((try dsimp); wpgen <;> try simp only [loomLogicSimp, loomWpSimp, invariants, List.foldr]))
 
-attribute [spec high, wpSimp] WPGen.forWithInvariantDecreasing WPGen.if
-attribute [spec, wpSimp] WPGen.bind WPGen.pure WPGen.assert WPGen.forWithInvariant WPGen.map
-attribute [wpSimp] spec WPGen.spec_triple_invs
+attribute [spec high, loomWpSimp] WPGen.forWithInvariantDecreasing WPGen.if
+attribute [spec, loomWpSimp] WPGen.bind WPGen.pure WPGen.assert WPGen.forWithInvariant WPGen.map
+attribute [loomWpSimp] spec WPGen.spec_triple_invs
 
-@[logicSimp]
+@[loomLogicSimp]
 lemma leE (l : Type u) [PartialOrder l] (a b : α -> l) : a ≤ b ↔ ∀ x, a x ≤ b x := by
   rfl
-@[logicSimp]
+@[loomLogicSimp]
 lemma lePropE (a b : Prop) : (a ≤ b) = (a → b) := by
   rfl
 
-@[logicSimp]
+@[loomLogicSimp]
 lemma pureE (l : Type u) [CompleteLattice l] (a : Prop) : (⌜a⌝ : α -> l) = fun _ => ⌜a⌝ := by
   simp [LE.pure]; split <;> rfl
 
-@[logicSimp]
+@[loomLogicSimp]
 lemma purePropE  : (⌜a⌝ : Prop) = a := by
   simp [LE.pure]
 
-@[logicSimp]
+@[loomLogicSimp]
 lemma infPropE (a b : Prop) : (a ⊓ b) = (a ∧ b) := by
   rfl
 
-@[logicSimp]
+@[loomLogicSimp]
 lemma infE (l : Type u) [CompleteLattice l] (a b : α -> l) : (a ⊓ b) = fun x => a x ⊓ b x := by
   rfl
 
-@[logicSimp]
+@[loomLogicSimp]
 lemma supE (l : Type u) [CompleteLattice l] (a b : α -> l) : (a ⊔ b) = fun x => a x ⊔ b x := by
   rfl
 
-@[logicSimp]
+@[loomLogicSimp]
 lemma supPropE (a b : Prop) : (a ⊔ b) = (a ∨ b) := by
   rfl
 
-@[logicSimp]
+@[loomLogicSimp]
 lemma iInfE (l : Type u) [CompleteLattice l] (a : ι -> α -> Prop) : (⨅ i, a i) = fun x => ⨅ i, a i x := by
   ext; simp
 
-@[logicSimp]
+@[loomLogicSimp]
 lemma iSupE (l : Type u) [CompleteLattice l] (a : ι -> α -> Prop) : (⨆ i, a i) = fun x => ⨆ i, a i x := by
   ext; simp
 
-attribute [logicSimp] forall_const implies_true and_true true_and
+attribute [loomLogicSimp] forall_const implies_true and_true true_and
 attribute [simp←] Nat.mul_add_one

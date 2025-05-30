@@ -37,7 +37,7 @@ instance [DecidableEq α] : Collection α (List α) where
   isEmpty_prop := by simp [List.eq_nil_iff_forall_not_mem]
 
 attribute [-simp] if_true_left Bool.if_true_left ite_eq_left_iff
-attribute [logicSimp] ite_self
+attribute [loomLogicSimp] ite_self
 
 
 method Collection.toSet (mut k : κ) return (s : α -> Bool)

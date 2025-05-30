@@ -192,7 +192,7 @@ lemma MonadNonDet.wp_forIn {β : Type u} (init : β) (f : Unit -> β -> NonDetT 
   simp [spec, hstep]
 
 
-@[wpSimp, spec]
+@[loomWpSimp, spec]
 noncomputable
 def WPGen.forWithInvariantLoop [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m] {β}
   {init : β} {f : Unit -> β → NonDetT m (ForInStep β)}
@@ -323,7 +323,7 @@ lemma MonadNonDet.wp_forIn {β : Type u} (init : β) (f : Unit -> β -> NonDetT 
   refine le_iSup_of_le (fun | .yield b' => inv b' | .done b' => inv b' ⊓ on_done' b') ?_
   simp [spec, hstep]
 
-@[wpSimp, spec]
+@[loomWpSimp, spec]
 noncomputable
 def WPGen.forWithInvariantLoop [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m] {β}
   {init : β} {f : Unit -> β → NonDetT m (ForInStep β)}
@@ -461,7 +461,7 @@ lemma MonadNonDet.wp_forIn {β : Type u} (init : β) [WellFoundedRelation β] (f
   simp [spec, hstep]
 
 
-@[wpSimp, spec]
+@[loomWpSimp, spec]
 noncomputable
 def WPGen.forWithInvariantLoop [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m] {β} [WellFoundedRelation β]
   {init : β} {f : Unit -> β → NonDetT m (ForInStep β)}
@@ -592,7 +592,7 @@ lemma MonadNonDet.wp_forIn {β : Type u} (init : β) (f : Unit -> β -> NonDetT 
   refine le_iSup_of_le (fun | .yield b' => inv b' | .done b' => inv b' ⊓ on_done' b') ?_
   simp [spec, hstep]
 
-@[wpSimp, spec]
+@[loomWpSimp, spec]
 noncomputable
 def WPGen.forWithInvariantLoop [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m] {β}
   {init : β} {f : Unit -> β → NonDetT m (ForInStep β)}
