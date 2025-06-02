@@ -18,15 +18,15 @@ instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
   [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] [inst': MPropDet m l]
    : MPropDet (StateT σ m) (σ -> l) where
     angelic := by
-      intros α c p₁ p₂ s;
+      intros α ι c p _ s;
       simp [MProp.lift, MProp.μ, MPropOrdered.μ, Functor.map, StateT.map]
-      have h := inst'.angelic (α := α × σ) (c := c s) (p₁ := fun x => p₁ x.1 x.2) (p₂ := fun x => p₂ x.1 x.2)
+      have h := inst'.angelic (α := α × σ) (c := c s) (ι := ι) (p := fun i x => p i x.1 x.2)
       simp [MProp.lift, MProp.μ] at h
       apply h
     demonic := by
-      intros α c p₁ p₂ s;
+      intros α ι c p _ s;
       simp [MProp.lift, MProp.μ, MPropOrdered.μ, Functor.map, StateT.map]
-      have h := inst'.demonic (α := α × σ) (c := c s) (p₁ := fun x => p₁ x.1 x.2) (p₂ := fun x => p₂ x.1 x.2)
+      have h := inst'.demonic (α := α × σ) (c := c s) (ι := ι) (p := fun i x => p i x.1 x.2)
       simp [MProp.lift, MProp.μ] at h
       apply h
 

@@ -53,85 +53,61 @@ instance MPropExceptHdDet (hd : ε -> Prop)
   [CompleteLattice l] [inst: MPropOrdered m l] [IsHandler hd]
   [inst': MPropDet m l] : MPropDet (ExceptT ε m) l where
   angelic := by
-    intros α c p₁ p₂
+    intros α ι c p _
     simp [MProp.lift, MProp.μ, MPropOrdered.μ, Functor.map, ExceptT.map, ExceptT.mk]
     simp [OfHd, MPropExcept]
     have h := inst'.angelic (α := Except ε α) (c := c)
-      (p₁ := fun e =>
+      (p := fun i e =>
         match e with
-        | Except.ok a    => p₁ a
-        | Except.error e => ⌜hd e⌝ )
-      (p₂ := fun e =>
-        match e with
-        | Except.ok a    => p₂ a
+        | Except.ok a    => p i a
         | Except.error e => ⌜hd e⌝ )
     simp [MProp.lift, MProp.μ] at h
-    have h₁ : ∀ p₁ p₂ : α -> l,
+    have h₁ : ∀ p : ι -> α -> l,
+      ⨆ i,
       (MPropOrdered.μ (m := m) (do
         bind (m := m) c fun a =>
         Except.getD (⌜hd ·⌝) <$>
             match a with
-            | Except.ok a => pure (Except.ok (p₁ a))
-            | Except.error e => pure (Except.error e))) ⊓
-      (MPropOrdered.μ (m := m) (do
-        bind (m := m) c fun a =>
-        Except.getD (⌜hd ·⌝) <$>
-            match a with
-            | Except.ok a => pure (Except.ok (p₂ a))
+            | Except.ok a => pure (Except.ok (p i a))
             | Except.error e => pure (Except.error e))) =
+      ⨆ i,
       MPropOrdered.μ (Functor.map (f := m) (α := Except ε α)
         (fun a =>
           match a with
-            | Except.ok a => (p₁ a)
-            | Except.error e => ⌜hd e⌝) c) ⊓
-      MPropOrdered.μ (Functor.map (f := m) (α := Except ε α)
-        (fun a =>
-          match a with
-            | Except.ok a => (p₂ a)
+            | Except.ok a => (p i a)
             | Except.error e => ⌜hd e⌝) c) := by
-      intro p₁ p₂; congr 1 <;> rw [map_eq_pure_bind] <;> apply MProp.bind (m := m) <;> ext a <;> cases a <;> simp
-    (repeat erw [h₁]); clear h₁; apply le_trans; apply h
+      intro p; congr; ext i; rw [map_eq_pure_bind]; apply MProp.bind (m := m); ext a; cases a <;> simp
+    (repeat erw [h₁]); clear h₁; apply le_trans'; apply h
     apply le_of_eq;rw [map_eq_pure_bind]; apply MProp.bind (m := m); ext a; cases a <;> simp
+    simp [Except.getD, MProp.μ, iSup_const]
   demonic := by
-    intros α c p₁ p₂
+    intros α ι c p _
     simp [MProp.lift, MProp.μ, MPropOrdered.μ, Functor.map, ExceptT.map, ExceptT.mk]
     simp [OfHd, MPropExcept]
     have h := inst'.demonic (α := Except ε α) (c := c)
-      (p₁ := fun e =>
+      (p := fun i e =>
         match e with
-        | Except.ok a    => p₁ a
-        | Except.error e => ⌜hd e⌝ )
-      (p₂ := fun e =>
-        match e with
-        | Except.ok a    => p₂ a
+        | Except.ok a    => p i a
         | Except.error e => ⌜hd e⌝ )
     simp [MProp.lift, MProp.μ] at h
-    have h₁ : ∀ p₁ p₂ : α -> l,
+    have h₁ : ∀ p : ι -> α -> l,
+      ⨅ i,
       (MPropOrdered.μ (m := m) (do
         bind (m := m) c fun a =>
         Except.getD (⌜hd ·⌝) <$>
             match a with
-            | Except.ok a => pure (Except.ok (p₁ a))
-            | Except.error e => pure (Except.error e))) ⊔
-      (MPropOrdered.μ (m := m) (do
-        bind (m := m) c fun a =>
-        Except.getD (⌜hd ·⌝) <$>
-            match a with
-            | Except.ok a => pure (Except.ok (p₂ a))
+            | Except.ok a => pure (Except.ok (p i a))
             | Except.error e => pure (Except.error e))) =
+      ⨅ i,
       MPropOrdered.μ (Functor.map (f := m) (α := Except ε α)
         (fun a =>
           match a with
-            | Except.ok a => (p₁ a)
-            | Except.error e => ⌜hd e⌝) c) ⊔
-      MPropOrdered.μ (Functor.map (f := m) (α := Except ε α)
-        (fun a =>
-          match a with
-            | Except.ok a => (p₂ a)
+            | Except.ok a => (p i a)
             | Except.error e => ⌜hd e⌝) c) := by
-      intro p₁ p₂; congr 1 <;> rw [map_eq_pure_bind] <;> apply MProp.bind (m := m) <;> ext a <;> cases a <;> simp
-    (repeat erw [h₁]); clear h₁; apply le_trans'; apply h
+      intro p; congr; ext i; rw [map_eq_pure_bind]; apply MProp.bind (m := m); ext a; cases a <;> simp
+    (repeat erw [h₁]); clear h₁; apply le_trans; apply h
     apply le_of_eq;rw [map_eq_pure_bind]; apply MProp.bind (m := m); ext a; cases a <;> simp
+    simp [Except.getD, MProp.μ, iInf_const]
 
 
 end ExeceptHandler

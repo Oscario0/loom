@@ -154,6 +154,16 @@ lemma MonadNonDet.wp_assume {as : Prop} post : _root_.wp (MonadNonDet.assume (m 
 lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) post :
   _root_.wp (MonadNonDet.pickSuchThat (m := NonDetT m) τ p) post = ⨅ a, ⌜p a⌝ ⇨ post a := by
   simp [MonadNonDet.pickSuchThat, NonDetT.pickSuchThat]
+
+lemma NonDetT.wp_iInf {ι : Type u} {α : Type u} {l : Type u} [CompleteBooleanAlgebra l] [MPropOrdered m l] [MPropDet m l] [Nonempty ι]
+  (x : NonDetT m α) (post : ι -> α -> l) :
+  _root_.wp x (fun a => iInf post a) = ⨅ i, _root_.wp x (post i) := by
+  simp [NonDetT.wp_eq_wp]
+  unhygienic induction x <;> simp [NonDetT.wp, iInf_const, pure, *]
+  { erw [_root_.wp_iInf] }
+  rw [iInf_psigma', iInf_comm]; congr!; simp [iInf_psigma']
+
+
 end DemonicChoice
 
 namespace AngelicChoice

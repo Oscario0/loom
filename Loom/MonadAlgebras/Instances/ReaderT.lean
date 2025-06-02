@@ -21,15 +21,15 @@ instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
   [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] [inst': MPropDet m l]
    : MPropDet (ReaderT σ m) (σ -> l) where
     angelic := by
-      intros α c p₁ p₂ s;
+      intros α ι c p _ s;
       simp [MProp.lift, MProp.μ, MPropOrdered.μ, Functor.map]
-      have h := inst'.angelic (α := α) (c := c s) (p₁ := fun x => p₁ x s) (p₂ := fun x => p₂ x s)
+      have h := inst'.angelic (α := α) (c := c s) (p := fun i x => p i x s)
       simp [MProp.lift, MProp.μ] at h
       apply h
     demonic := by
-      intros α c p₁ p₂ s;
+      intros α ι c p _ s;
       simp [MProp.lift, MProp.μ, MPropOrdered.μ, Functor.map]
-      have h := inst'.demonic (α := α) (c := c s) (p₁ := fun x => p₁ x s) (p₂ := fun x => p₂ x s)
+      have h := inst'.demonic (α := α) (c := c s) (p := fun i x => p i x s)
       simp [MProp.lift, MProp.μ] at h
       apply h
 

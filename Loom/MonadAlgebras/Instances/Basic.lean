@@ -59,9 +59,9 @@ scoped instance : MPropOrdered DivM Prop where
 
 scoped instance : MPropDet DivM Prop where
   demonic := by
-    rintro _ (_|_) <;> simp [MProp.lift, MPropOrdered.μ, Functor.map, LE.pure]
+    rintro _ _ (_|_) <;> simp [MProp.lift, MPropOrdered.μ, Functor.map, LE.pure]
   angelic := by
-    rintro _ (_|_) <;> simp [MProp.lift, MPropOrdered.μ, Functor.map, LE.pure]
+    rintro _ _ (_|_) <;> simp [MProp.lift, MPropOrdered.μ, Functor.map, LE.pure]
 
 instance : MPropPartial DivM where
   csup_lift {α} chain := by
@@ -88,9 +88,9 @@ scoped instance : MPropOrdered DivM Prop where
 
 scoped instance : MPropDet DivM Prop where
   angelic := by
-    rintro _ (_|_) <;> simp [MProp.lift, MPropOrdered.μ, Functor.map, LE.pure]
+    rintro _ _ (_|_) <;> simp [MProp.lift, MPropOrdered.μ, Functor.map, LE.pure]
   demonic := by
-    rintro _ (_|_) <;> simp [MProp.lift, MPropOrdered.μ, Functor.map, LE.pure]
+    rintro _ _ (_|_) <;> simp [MProp.lift, MPropOrdered.μ, Functor.map, LE.pure]
 
 instance : MPropTotal DivM where
   bot_lift := by

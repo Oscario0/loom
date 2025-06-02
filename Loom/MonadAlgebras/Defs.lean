@@ -101,14 +101,15 @@ lemma MProp.lift_bind {α β} {l : Type u} {m : Type u -> Type v} [Monad m] [Law
     (lift x >>= f) ≤ (lift x >>= g) := by
     intro fLg h; simp [Bind.bind]
     apply Cont.monotone_lift; intros h; apply fLg
+
 /-- Class for deterministic monadic algebras -/
 class MPropDet (l : outParam (Type v)) [Monad m] [CompleteLattice l] [MPropOrdered m l] where
   /-- Demonic determinism -/
-  demonic {α : Type v} (c : m α) (p₁ p₂ : α -> l) :
-    MProp.lift c p₁ ⊔ MProp.lift c p₂ ≥ MProp.lift c (fun x => p₁ x ⊔ p₂ x)
+  demonic {α ι : Type v} (c : m α) (p : ι -> α -> l) [Nonempty ι] :
+    ⨅ i, MProp.lift c (p i) ≤ MProp.lift c (fun x => ⨅ i, p i x)
   /-- Angelic determinism -/
-  angelic {α : Type v} (c : m α) (p₁ p₂ : α -> l) :
-    MProp.lift c p₁ ⊓ MProp.lift c p₂ ≤ MProp.lift c (fun x => p₁ x ⊓ p₂ x)
+  angelic {α ι : Type v} (c : m α) (p : ι -> α -> l) [Nonempty ι] :
+    ⨆ i, MProp.lift c (p i) ≥ MProp.lift c (fun x => ⨆ i, p i x)
 
 /-- Class for partial correctness monadic algebras -/
 class MPropPartial (m : Type u -> Type v) [Monad m] [∀ α, Lean.Order.CCPO (m α)]

@@ -78,30 +78,47 @@ section Determenism
 
 variable [inst: CompleteLattice l] [MPropOrdered m l]
 
+lemma wp_iInf {ι : Type u} [Nonempty ι] [MPropDet m l] (c : m α) (post : ι -> α -> l) :
+  wp c (fun x => ⨅ i, post i x) = ⨅ i, wp c (post i) := by
+    apply le_antisymm
+    { refine le_iInf ?_; intros i; apply wp_cons; intro y
+      exact iInf_le (fun i ↦ post i y) i }
+    apply MPropDet.demonic
+
 lemma wp_and [MPropDet m l] (c : m α) (post₁ post₂ : α -> l) :
   wp c (fun x => post₁ x ⊓ post₂ x) = wp c post₁ ⊓ wp c post₂ := by
   apply le_antisymm
   { simp; constructor <;> apply wp_cons <;> simp }
-  have h := MPropDet.angelic (α := α) (c := c) (p₁ := post₁) (p₂ := post₂)
+  have h := MPropDet.demonic (l := l) (ι := ULift Bool) (c := c) (p := fun | .up true => post₁ | .up false => post₂)
   simp at h
   apply le_trans; apply le_trans'; apply h
-  { simp [wp]; constructor;
-    { exact inf_le_left; }
-    exact inf_le_right }
-  apply wp_cons (m := m); simp;
+  { simp [wp]; constructor; exact inf_le_right
+    exact inf_le_left }
+  apply wp_cons (m := m); simp; intros; constructor
+  { refine iInf_le_of_le true ?_; simp }
+  refine iInf_le_of_le false ?_; simp
+
+lemma wp_iSup {ι : Type u} [Nonempty ι] [MPropDet m l] (c : m α) (post : ι -> α -> l) :
+  wp c (fun x => ⨆ i, post i x) = ⨆ i, wp c (post i) := by
+    apply le_antisymm
+    { apply MPropDet.angelic }
+    refine iSup_le ?_; intros i; apply wp_cons; intro y
+    exact le_iSup (fun i ↦ post i y) i
 
 
 lemma wp_or [MPropDet m l] (c : m α) (post₁ post₂ : α -> l) :
   wp c (fun x => post₁ x ⊔ post₂ x) = wp c post₁ ⊔ wp c post₂ := by
   apply le_antisymm
-  { have h := MPropDet.demonic (α := α) (c := c) (p₁ := post₁) (p₂ := post₂)
+  { have h := MPropDet.angelic (l := l) (ι := ULift Bool) (c := c) (p := fun | .up true => post₁ | .up false => post₂)
     simp [-iSup_le_iff] at h
     apply le_trans; apply le_trans'; apply h
-    { apply wp_cons (m := m); simp }
-    simp [wp]; constructor;
-    { exact le_sup_left; }
-    exact le_sup_right }
+    { apply wp_cons (m := m); simp; intros; constructor
+      { refine le_iSup_of_le true ?_; simp }
+      refine le_iSup_of_le false ?_; simp }
+    simp [wp]; constructor; exact le_sup_right
+    exact le_sup_left }
   simp; constructor <;> apply wp_cons <;> simp
+
 
 end Determenism
 
