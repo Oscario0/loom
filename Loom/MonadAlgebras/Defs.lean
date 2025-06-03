@@ -134,6 +134,10 @@ class LogicLift (l : semiOutParam (Type u)) ( k : Type u) [lift : MonadLiftT (Co
   lift_bot {α : Type u} :
     liftM (m := Cont l) (n := Cont k) (fun (_ : α -> l) => ⊥) = ⊥
 
+@[simp]
+lemma lift_cont_eq {l σ : Type u} [CompleteLattice l] [CompleteLattice σ] (c : Cont l α) :
+  liftM (m := Cont l) (n := Cont (σ -> l)) c = fun post s => c (post · s)  := by
+    rfl
 
 instance [CompleteLattice l] : LogicLift l l where
   lift_top := by simp [liftM, monadLift, MonadLift.monadLift]; intros; rfl
