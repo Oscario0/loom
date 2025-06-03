@@ -35,6 +35,10 @@ lemma wp_bind {β} (x : m α) (f : α -> m β) (post : β -> l) :
     wp (x >>= f) post = wp x (fun x => wp (f x) post) := by
     simp [wp, liftM]; rw [lift_bind]; rfl
 
+lemma wp_map {β} (x : m α) (f : α -> β) (post : β -> l) :
+  wp (f <$> x) post = wp x (fun x => post (f x)) := by
+    rw [map_eq_pure_bind, wp_bind]; simp [wp_pure]
+
 lemma wp_cons (x : m α) (post post' : α -> l) :
   (∀ y, post y ≤ post' y) ->
   wp x post ≤ wp x post' := by
@@ -413,6 +417,33 @@ lemma MPropLift.wp_throw
 
 
 end ExceptT
+
+section StateT
+
+variable [inst: CompleteLattice l] [MPropOrdered m l]
+
+lemma StateT.wp_get (post : σ -> σ -> l) :
+  wp (get (m := StateT σ m)) post = fun s => post s s := by
+  simp [StateT.wp_eq, get, getThe, MonadStateOf.get, StateT.get, wp_pure]
+
+lemma StateT.wp_modifyGet (post : α -> σ -> l) :
+  wp (modifyGet (m := StateT σ m) f) post = fun s => post (f s).1 (f s).2 := by
+  simp [StateT.wp_eq, modifyGet, MonadStateOf.modifyGet, StateT.modifyGet, wp_pure]
+
+end StateT
+
+section ReaderT
+
+variable [inst: CompleteLattice l] [MPropOrdered m l]
+
+lemma ReaderT.wp_read (post : σ -> σ -> l) :
+  wp (read (m := ReaderT σ m)) post = fun s => post s s := by
+  simp [ReaderT.wp_eq, read, readThe, MonadReaderOf.read, ReaderT.read, wp_pure]
+
+
+end ReaderT
+
+
 
 -- section StrongestPostcondition
 
