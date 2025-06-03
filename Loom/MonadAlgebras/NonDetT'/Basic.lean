@@ -170,6 +170,7 @@ instance [NoFailure m] : NoFailure (NonDetT m) where
     rw [this, NonDetT.wp_eq_wp]; clear this
     induction c <;> simp [NonDetT.wp, pure, *]
 
+scoped
 instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l]
   [inst: MPropOrdered m l] :
   MPropLiftT m l (NonDetT m) l where
@@ -264,6 +265,7 @@ lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) post :
   _root_.wp (MonadNonDet.pickSuchThat (m := NonDetT m) τ p) post = ⨆ a, ⌜p a⌝ ⊓ post a := by
   simp [MonadNonDet.pickSuchThat, NonDetT.pickSuchThat]
 
+scoped
 instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l]
   [inst: MPropOrdered m l] :
   MPropLiftT m l (NonDetT m) l where
