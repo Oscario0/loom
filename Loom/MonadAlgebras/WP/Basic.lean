@@ -4,6 +4,7 @@ import Loom.MonadAlgebras.Instances.Basic
 import Loom.MonadAlgebras.Instances.ExceptT
 import Loom.MonadAlgebras.Instances.StateT
 import Loom.MonadAlgebras.Instances.ReaderT
+import Loom.MonadAlgebras.Instances.Gen
 
 universe u v w
 
@@ -45,7 +46,7 @@ lemma wp_cons (x : m α) (post post' : α -> l) :
     intros h; simp [wp, liftM, monadLift]; apply Cont.monotone_lift; intros y
     apply h
 
-lemma triple_cons (x : m α) (pre pre' : l) (post post' : α -> l) :
+lemma triple_cons (x : m α) {pre pre' : l} {post post' : α -> l} :
   pre' ≤ pre ->
   (∀ y, post y ≤ post' y) ->
   triple pre x post ->
@@ -452,6 +453,18 @@ lemma ReaderT.wp_read (post : σ -> σ -> l) :
 
 end ReaderT
 
+section Gen
+
+open Plausible
+
+lemma Gen.wp_rand {α : Type} (c : Gen α) :
+  triple ⊤ c (fun _ => ⊤) := by
+    simp [triple, MPropGenInst, ReaderT.wp_eq, StateT.wp_eq]
+    simp [wp, liftM, monadLift, MProp.lift, MPropOrdered.μ]; rfl
+
+
+
+end Gen
 
 
 -- section StrongestPostcondition
