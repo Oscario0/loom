@@ -53,6 +53,7 @@ instance [Monad m] [LawfulMonad m]
 
 alias EffectObservation := LawfulMonadLift
 
+
 -- class abbrev SpecMonad (m : Type u -> Type w) (w : Type u -> Type v) [Monad m] :=
 --   MonadOrder w, MonadLiftT m w, EffectObservation m w
 

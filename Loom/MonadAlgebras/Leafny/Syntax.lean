@@ -11,6 +11,27 @@ import Loom.MonadAlgebras.Leafny.Extension
 
 open Lean Elab Command Term Meta Lean.Parser
 
+private def _root_.Lean.EnvExtension.set (ext : EnvExtension σ) (s : σ)
+  [Monad m] [MonadEnv m] : m Unit := do
+  Lean.setEnv $ ext.setState (<- getEnv) s
+
+private def _root_.Lean.EnvExtension.modify (ext : EnvExtension σ) (s : σ -> σ)
+  [Monad m] [MonadEnv m] : m Unit := do
+  Lean.modifyEnv (ext.modifyState · s)
+
+private def _root_.Lean.EnvExtension.get [Inhabited σ] (ext : EnvExtension σ)
+  [Monad m] [MonadEnv m] : m σ := do
+  return ext.getState (<- getEnv)
+
+private def _root_.Lean.SimpleScopedEnvExtension.get [Inhabited σ] (ext : SimpleScopedEnvExtension α σ)
+  [Monad m] [MonadEnv m] : m σ := do
+  return ext.getState (<- getEnv)
+
+private def _root_.Lean.SimpleScopedEnvExtension.modify
+  (ext : SimpleScopedEnvExtension α σ) (s : σ -> σ)
+  [Monad m] [MonadEnv m] : m Unit := do
+  Lean.modifyEnv (ext.modifyState · s)
+
 
 abbrev doSeq := TSyntax ``Term.doSeq
 abbrev doSeqItem := TSyntax ``Term.doSeqItem

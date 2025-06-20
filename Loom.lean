@@ -1,1 +1,1 @@
-import Loom.MonadAlgebras.Example
+import Loom.MonadAlgebras.Leafny.Examples

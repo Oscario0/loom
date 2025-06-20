@@ -462,8 +462,6 @@ lemma Gen.wp_rand {α : Type} (c : Gen α) :
     simp [triple, MPropGenInst, ReaderT.wp_eq, StateT.wp_eq]
     simp [wp, liftM, monadLift, MProp.lift, MPropOrdered.μ]; rfl
 
-
-
 end Gen
 
 

@@ -32,6 +32,8 @@ instance (t : Type v) [Preorder t] : Monad (W t) where
 instance {l σ : Type u} : MonadLift (Cont l) (Cont (σ -> l)) where
   monadLift x := fun f s => x (f · s)
 
+
+
 -- class Logic (t : Type u) extends SemilatticeInf t where
 --   sat : t -> Prop
 --   sat_monotone : ∀ {p₁ p₂ : t}, p₁ ≤ p₂ -> sat p₁ -> sat p₂
