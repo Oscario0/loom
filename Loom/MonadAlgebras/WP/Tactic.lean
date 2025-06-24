@@ -169,7 +169,11 @@ lemma topE (l : Type u) [CompleteLattice l] : (⊤ : α -> l) = fun _ => ⊤ := 
 @[loomLogicSimp]
 lemma topPureE : (⊤ : Prop) = True := by rfl
 
-attribute [loomLogicSimp] forall_const implies_true and_true true_and iInf_Prop_eq topE topPureE and_true
+attribute [loomLogicSimp]
+  forall_const
+  implies_true and_true true_and
+  iInf_Prop_eq
+  and_imp
 attribute [simp←] Nat.mul_add_one
 
 attribute [loomWpSplit] iInf_inf_eq himp_inf_distrib wp_and wp_iInf
