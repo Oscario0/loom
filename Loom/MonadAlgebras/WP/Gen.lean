@@ -11,6 +11,31 @@ open Lean Elab Command
 
 universe u v w
 
+private def _root_.Lean.SimpleScopedEnvExtension.get [Inhabited σ] (ext : SimpleScopedEnvExtension α σ)
+  [Monad m] [MonadEnv m] : m σ := do
+  return ext.getState (<- getEnv)
+
+private def _root_.Lean.SimpleScopedEnvExtension.modify
+  (ext : SimpleScopedEnvExtension α σ) (s : σ -> σ)
+  [Monad m] [MonadEnv m] : m Unit := do
+  Lean.modifyEnv (ext.modifyState · s)
+
+
+structure LoomAssertionsMap where
+  maxId : Int
+  store : Std.HashMap Int Term
+  deriving Inhabited
+
+initialize loomAssertionsMap :
+  SimpleScopedEnvExtension Term LoomAssertionsMap <-
+  registerSimpleScopedEnvExtension {
+    initial := default
+    addEntry := fun s t =>
+      let maxId := s.maxId + 1
+      { s with maxId := maxId, store := s.store.insert maxId t }
+  }
+
+
 section
 variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l]
 
@@ -46,9 +71,15 @@ def decreasingGadget (measure : ℕ) : m PUnit := pure .unit
 macro "decreasing" t:term : term => `(decreasingGadget $t)
 
 elab "with_name_prefix" lit:name inv:term : term => do
-  let invName <- mkFreshUserName lit.getName
-  let invn := invName.mkStr "local" --this is needed.
-  Term.elabTerm (<- ``(WithName $inv $(Lean.quoteNameMk (Lean.Name.mkSimple invn.toString)))) none
+  let ⟨maxId, s⟩ <- loomAssertionsMap.get
+  let newMaxId := maxId + 1
+  let invName := lit.getName.toString ++ "_" ++ toString newMaxId.toNat |>.toName
+  let newTerm := Lean.quoteNameMk invName
+  loomAssertionsMap.modify (fun res => {
+      store := res.store.insert newMaxId newTerm
+      maxId := newMaxId
+      })
+  Term.elabTerm (<- ``(WithName $inv $(Lean.quoteNameMk invName))) none
 
 syntax "let" ident ":|" term : doElem
 syntax "while" term
@@ -223,7 +254,7 @@ def WPGen.assert {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [
 noncomputable
 def WPGen.if {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MPropOrdered m l]
   {_ : Decidable h} {x y : m α} (wpgx : WPGen x) (wpgy : WPGen y) : WPGen (if h then x else y) where
-  get := fun post => (⌜h⌝ ⇨ wpgx.get post) ⊓ (⌜¬ h⌝ ⇨ wpgy.get post)
+  get := fun post => (⌜WithName h (Lean.Name.anonymous.mkStr "if_pos")⌝ ⇨ wpgx.get post) ⊓ (⌜WithName (¬ h) (Lean.Name.anonymous.mkStr "if_neg")⌝ ⇨ wpgy.get post)
   prop := by
     intro post; simp [LE.pure]
     split <;> simp <;> solve_by_elim [wpgx.prop, wpgy.prop]

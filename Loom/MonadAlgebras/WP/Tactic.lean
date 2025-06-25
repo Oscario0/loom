@@ -79,28 +79,8 @@ partial def Lean.Expr.getNamesProp (tp : Expr) : MetaM (Option (List Name)) := d
     let some ns <- tr.getNamesProp
       | return none
     return some $ n₁ :: ns
-  | And fst snd =>
-    match_expr fst with
-    | WithName _ name =>
-      let fstName ← name.getName
-      let some rem ← snd.getNamesProp
-        | return some [fstName]
-      return some $ fstName :: rem
-    | _ => return none
-  | True =>
-    return some [`triv]
   | _ =>
-    match tp with
-    | Expr.app (Expr.app _ fst) snd =>
-      match_expr fst with
-      | WithName _ name =>
-        let fstName ← name.getName
-        let some rem ← snd.getNamesProp
-          | return some [fstName, `triv] --this is really bad actually
-        return some $ fstName :: rem
-      | _ => return none
-    | _ =>
-      return none
+    return none
 
 def renameOld (n : Name) : TacticM Unit := withMainContext do
   (<- getMainGoal).modifyLCtx fun hyps => Id.run do
@@ -118,7 +98,8 @@ elab "loom_intro" : tactic => withMainContext do
     | evalTactic $ <- `(tactic| fail)
   let some ns <- tp.getNamesProp
     | evalTactic $ <- `(tactic| try unhygienic intro) -- because sometimes it is part of an invariant and unnamed by defualt
-  let names := ns |>.map Lean.mkIdent |>.toArray
+  let ns1 ← ns.mapM getUnusedUserName
+  let names := ns1 |>.map Lean.mkIdent |>.toArray
   for name in names do renameOld name.getId
   if names.size > 1 then
     evalTactic $ <- `(tactic|
