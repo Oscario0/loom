@@ -398,12 +398,10 @@ lemma spv_dot_eq
   (spv1 spv2: SpVAbs_p) (pnt1 pnt2: ℕ) (prev: Int):
   prev + spv_dot spv1 spv2 pnt1 pnt2 = spv_dot spv1 spv2 0 0 →
     TArray.get pnt1 (SpVT.ind spv1) = TArray.get pnt2 (SpVT.ind spv2) →
-    pnt1 ≤ SpVT.size spv1 →
-    ¬(pnt1 = SpVT.size spv1) →
-    pnt2 ≤ SpVT.size spv2 →
-    ¬(pnt2 = SpVT.size spv2) →
+    pnt1 < SpVT.size spv1 →
+    pnt2 < SpVT.size spv2 →
     prev + TArray.get pnt1 (SpVT.val spv1) * TArray.get pnt2 (SpVT.val spv2) + spv_dot spv1 spv2 (pnt1 + 1) (pnt2 + 1) = spv_dot spv1 spv2 0 0 := by
-      intro sum_eq ind_eq inb1 neq1 inb2 neq2
+      intro sum_eq ind_eq inb1 inb2
       rw [spv_dot] at sum_eq
       have neq: ¬(SpVT.size spv1 ≤ pnt1 ∨ SpVT.size spv2 ≤ pnt2) := by omega
       try simp only [loomAbstractionSimp] at *
@@ -417,9 +415,9 @@ theorem spv_dot_lt
   (spv1 spv2: SpVAbs_p) (pnt1 pnt2: ℕ) (prev: Int):
   prev + spv_dot spv1 spv2 pnt1 pnt2 = spv_dot spv1 spv2 0 0 →
   TArray.get pnt1 (SpVT.ind spv1) < TArray.get pnt2 (SpVT.ind spv2) →
-  pnt1 ≤ SpVT.size spv1 → ¬(pnt1 = SpVT.size spv1) → pnt2 ≤ SpVT.size spv2 → ¬(pnt2 = SpVT.size spv2) →
+  pnt1 < SpVT.size spv1 → pnt2 < SpVT.size spv2 →
     prev + spv_dot spv1 spv2 (pnt1 + 1) pnt2 = spv_dot spv1 spv2 0 0 := by
-      intro sum_eq ind_lt inb1 neq1 inb2 neq2
+      intro sum_eq ind_lt inb1 inb2
       rw [spv_dot] at sum_eq
       have neq: ¬(SpVT.size spv1 ≤ pnt1 ∨ SpVT.size spv2 ≤ pnt2) := by omega
       try simp only [loomAbstractionSimp] at *
@@ -434,9 +432,9 @@ theorem spv_dot_gt
   prev + spv_dot spv1 spv2 pnt1 pnt2 = spv_dot spv1 spv2 0 0 →
   TArray.get pnt2 (SpVT.ind spv2) ≤ TArray.get pnt1 (SpVT.ind spv1) →
   TArray.get pnt1 (SpVT.ind spv1) ≠ TArray.get pnt2 (SpVT.ind spv2) →
-  pnt1 ≤ SpVT.size spv1 → ¬(pnt1 = SpVT.size spv1) → pnt2 ≤ SpVT.size spv2 → ¬(pnt2 = SpVT.size spv2) →
+  pnt1 < SpVT.size spv1 → pnt2 < SpVT.size spv2 →
     prev + spv_dot spv1 spv2 pnt1 (pnt2 + 1) = spv_dot spv1 spv2 0 0 := by
-      intro sum_eq ind_le ind_neq inb1 neq1 inb2 neq2
+      intro sum_eq ind_le ind_neq inb1 inb2
       rw [spv_dot] at sum_eq
       have neq: ¬(SpVT.size spv1 ≤ pnt1 ∨ SpVT.size spv2 ≤ pnt2) := by omega
       try simp only [loomAbstractionSimp] at *
@@ -772,7 +770,7 @@ theorem SpVSpV_correct_triple (out: arrVal) (spv1 spv2: SpVAbs) (n: ℕ):
       simp [WithName] at triple_true
       exact triple_true
 
-set_option auto.smt.timeout 5 in
+set_option auto.smt.timeout 20 in
 method SpMSpV
   (mut out: arrVal)
   (spm: arrSpV)
@@ -794,8 +792,8 @@ method SpMSpV
     do
       let ind_m := spmInd[i]
       let ind_v := spvInd[i]
-      if (SpVT.ind spm[i])[ind_m] = (SpVT.ind spv)[ind_v] then
-        out[i] += (SpVT.val spm[i])[ind_m] * (SpVT.val spm[i])[ind_v]
+      if TArray.get ind_m (SpVT.ind spm[i]) = TArray.get ind_v (SpVT.ind spv) then
+        out[i] += TArray.get ind_m (SpVT.val spm[i]) * TArray.get ind_v (SpVT.val spm[i])
         spmInd[i] += 1-- ind_inst.set i (spmInd[i] + 1) spmInd
         spvInd[i] += 1--:= ind_inst.set i (spvInd[i] + 1) spvInd
       else
@@ -809,9 +807,10 @@ prove_correct SpMSpV by
   velvet_solve
   {
     try simp only [loomAbstractionSimp] at *
-    auto [TArray.size_set, TArray.get_set]
-   }
-  sorry
+    set_option auto.smt.solver.name "z3" in
+    sorry
+    --auto [TArray.size_set, TArray.get_set, spv_dot_eq]
+  }
 
 
 theorem SpMSpV_correct_triple
