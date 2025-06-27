@@ -172,7 +172,7 @@ macro_rules
         -- let inv := invs.push inv
         `(doElem|
           for $x:ident in $t do
-            invariantGadget [ (with_name_prefix `invariant $inv':term), $[(with_name_prefix `invariant $inv:term)],* ]
+            invariantGadget [ $inv':term, $[$inv:term],* ]
             $[$seq:doElem]*)
       | _ => Lean.Macro.throwError "for expects a sequence of do-elements"
 
