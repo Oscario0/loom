@@ -107,6 +107,10 @@ syntax "while_some" ident ":|" term
   (invariantClause)*
   doneWith
   "do" doSeq : doElem
+syntax "for" ident "in" term
+  (invariantClause)+
+  "do" doSeq : doElem
+
 macro_rules
   | `(doElem| while $t
               $[invariant $inv:term
@@ -147,6 +151,21 @@ macro_rules
             let $x :| $t
             $[$seq:doElem]*
           else break)
+    | `(doElem| for $x:ident in $t
+              invariant $inv:term
+              $[invariant $invs:term
+              ]*
+              do $seq:doSeq) =>
+        match seq with
+        | `(doSeq| $[$seq:doElem]*)
+        | `(doSeq| $[$seq:doElem;]*)
+        | `(doSeq| { $[$seq:doElem]* }) =>
+          let inv := invs.push inv
+          `(doElem|
+            for $x:ident in $t do
+              invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
+              $[$seq:doElem]*)
+        | _ => Lean.Macro.throwError "for expects a sequence of do-elements"
     | _ => Lean.Macro.throwError "while_some expects a sequence of do-elements"
 
 
@@ -230,7 +249,7 @@ theorem triple_forIn_deacreasing {β} {measure : β -> ℕ}
 attribute [-simp] Std.Range.forIn_eq_forIn_range' in
 noncomputable
 def WPGen.forWithInvariant {xs : Std.Range} {init : β} {f : ℕ → β → m (ForInStep β)}
-  (inv : ℕ → β → List l) (wpg : ∀ i b, WPGen (f i b)) (xs1 : xs.step = 1) (xs_le : xs.start <= xs.stop) :
+  (inv : ℕ → β → List l) (wpg : ∀ i b, WPGen (f i b)) (xs1 : xs.step = 1) (xs_le : xs.start <= xs.stop := by omega) :
     WPGen (forIn xs init (fun i b => do invariantGadget (inv i b); (f i b))) where
     get := ⌜∀ i b, invariants (inv i b) <= (wpg i b).get fun
       | .yield b' => invariants <| inv (i + 1) b'
