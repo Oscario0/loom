@@ -122,8 +122,8 @@ elab "loom_intro" : tactic => withMainContext do
 macro "mwp" : tactic => `(tactic| (
   wpgen
   try simp only [loomLogicSimp, loomWpSimp, invariants, List.foldr, WithName.mk', WithName.erase]
-  repeat' (apply And.intro <;> (repeat loom_intro))
-  any_goals unfold WithName at *))
+  try unfold WithName at *
+  ))
 
 attribute [spec high, loomWpSimp] WPGen.if
 attribute [spec, loomWpSimp] WPGen.bind WPGen.pure WPGen.assert WPGen.forWithInvariant WPGen.map-- WPGen.let
