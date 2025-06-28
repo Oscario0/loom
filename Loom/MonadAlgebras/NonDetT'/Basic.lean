@@ -276,4 +276,4 @@ instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l]
 end AngelicChoice
 
 macro_rules
-  | `(doElem| let $x:ident :| $t) => `(doElem| let $x:ident <- pickSuchThat _ (fun $x => $t))
+  | `(doElem| let $x:term :| $t) => `(doElem| let $x:term <- pickSuchThat _ (fun $x => $t))

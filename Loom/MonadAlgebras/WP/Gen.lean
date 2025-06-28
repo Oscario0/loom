@@ -118,14 +118,14 @@ attribute [run_builtin_parser_attribute_hooks] termBeforeInvariant
 builtin_initialize
   register_parser_alias termBeforeInvariant
 
-syntax "let" ident ":|" term : doElem
+syntax "let" term ":|" term : doElem
 syntax "while" term
   (invariantClause)*
   (doneWith)?
   (decreasingTerm)?
   "do" doSeq : doElem
-syntax "while_some" ident ":|" termBeforeDo "do" doSeq : doElem
-syntax "while_some" ident ":|" term
+syntax "while_some" term ":|" termBeforeDo "do" doSeq : doElem
+syntax "while_some" term ":|" term
   (invariantClause)*
   doneWith
   "do" doSeq : doElem
