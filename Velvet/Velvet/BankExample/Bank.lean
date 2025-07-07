@@ -2,10 +2,9 @@ import Loom.MonadAlgebras.Instances.StateT
 import Loom.MonadAlgebras.Instances.ExceptT
 import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.NonDetT.Basic
-import Velvet.Syntax_bank
+import Velvet.BankExample.Syntax_bank
 import Mathlib.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
-import Auto
 import Lean
 
 import Loom.MonadAlgebras.WP.Tactic
