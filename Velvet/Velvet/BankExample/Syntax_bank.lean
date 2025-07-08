@@ -224,9 +224,9 @@ macro_rules
               do $seq:doSeq) => do
       let balance := mkIdent `balance_name
       let balanceType <- `(term| Balance)
-      let inv : Array Term <- inv.mapM fun inv => ``(fun ($(balance):ident : $balanceType)=> $inv)
+      let inv : Array Term <- inv.mapM fun (inv : Term) => withRef inv ``(fun ($(balance):ident : $balanceType)=> $inv)
       let invd_some <- match inv_done with
-      | some invd_some => ``(fun ($(balance):ident : $balanceType) => $invd_some)
+      | some invd_some => withRef invd_some ``(fun ($(balance):ident : $balanceType) => $invd_some)
       | none => ``(fun ($(balance):ident : $balanceType) => ¬$t:term)
       match measure with
       | some measure_some => do
