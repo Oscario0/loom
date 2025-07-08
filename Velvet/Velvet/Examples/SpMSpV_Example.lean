@@ -424,7 +424,7 @@ theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
         have bnd := sz1 p1 (by omega)
         omega
       apply Finset.sum_eq_single (SpVT.ind spv1)[p1] hb hc
-    simp at sum_eq_single
+    rw [if_pos] at sum_eq_single
     rw [←eq, ←sum_eq_single]
     rw [←Finset.sum_add_distrib]
     apply Finset.sum_congr
@@ -495,6 +495,7 @@ theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
       simp [interm_lemma spv2 x p2 (by omega) (by omega)] }
     simp at c2
     simp [interm_lemma spv1 x p1 (by omega) (by omega)]
+    rfl
   | case3 p1 p2 h1 neq le ih =>
     rw [spv_dot, if_neg h1, if_neg neq, if_pos le, ih]
     apply Finset.sum_congr
