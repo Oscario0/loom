@@ -7,6 +7,7 @@ import Mathlib.Algebra.Ring.Int.Defs
 import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.Instances.Basic
 import Loom.MonadAlgebras.WP.Tactic
+import Loom.Tactic
 
 import Velvet.Extension
 
@@ -196,16 +197,15 @@ lemma VelvetM.total_decompose_triple {α : Type} {pre : Prop} {post : α -> Prop
     simp [loomLogicSimp, postcondition, termination] at decomp
     exact decomp
 
+variable {m τ l} [Monad m] [LawfulMonad m] [Nonempty τ] [CompleteBooleanAlgebra l]
+  [MAlgOrdered m l]
+
 section
 open PartialCorrectness DemonicChoice
 
-@[spec, loomWpSimp]
-noncomputable
-def WPGen.pickSuchThat_part [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l]
-  [MAlgOrdered m l] : WPGen (pickSuchThat τ p : NonDetT m τ) := by
-  refine ⟨fun post => ⨅ t, ⌜p t⌝ ⇨ post t, ?_⟩
-  intro post;
-  simp [MonadNonDet.wp_pickSuchThat, loomLogicSimp]
+#derive_wp for (pickSuchThat τ p : NonDetT m τ) as
+  (pickSuchThat τ p (m := NonDetT m))
+  with (u: Unit)
 
 attribute [aesop safe cases] Decidable
 attribute [-simp] if_true_left Bool.if_true_left ite_eq_left_iff
@@ -216,25 +216,19 @@ end
 section
 open TotalCorrectness DemonicChoice
 
-@[spec, loomWpSimp]
-noncomputable
-def WPGen.pickSuchThat_totl [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l]
-  [MAlgOrdered m l] : WPGen (pickSuchThat τ p : NonDetT m τ) := by
-  refine ⟨fun post => ⨅ t, ⌜p t⌝ ⇨ post t, ?_⟩
-  intro post;
-  simp [MonadNonDet.wp_pickSuchThat, loomLogicSimp]
+#derive_wp for (pickSuchThat τ p : NonDetT m τ) as
+  (pickSuchThat τ p (m := NonDetT m))
+  with (u: Unit)
+
 end
 
 section
 open TotalCorrectness AngelicChoice
 
-@[spec, loomWpSimp]
-noncomputable
-def WPGen.pick_totl_angelic [Monad m] [LawfulMonad m] [Nonempty τ] [CompleteBooleanAlgebra l]
-  [MAlgOrdered m l] : WPGen (pick τ: NonDetT m τ) := by
-  refine ⟨fun post => ⨆ t, post t, ?_⟩
-  intro post;
-  simp [MonadNonDet.wp_pick, loomLogicSimp]
+#derive_wp for (pick τ : NonDetT m τ) as
+  (pick τ (m := NonDetT m))
+  with (u: Unit)
+
 end
 
 @[simp]

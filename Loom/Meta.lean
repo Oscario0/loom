@@ -398,6 +398,14 @@ attribute [loomWPGenSimp]
   PartialCorrectness.AngelicChoice.NonDetT.wp_lift
   TotalCorrectness.DemonicChoice.NonDetT.wp_lift
   TotalCorrectness.AngelicChoice.NonDetT.wp_lift
+  PartialCorrectness.DemonicChoice.MonadNonDet.wp_pick
+  PartialCorrectness.AngelicChoice.MonadNonDet.wp_pick
+  TotalCorrectness.DemonicChoice.MonadNonDet.wp_pick
+  TotalCorrectness.AngelicChoice.MonadNonDet.wp_pick
+  PartialCorrectness.DemonicChoice.MonadNonDet.wp_pickSuchThat
+  PartialCorrectness.AngelicChoice.MonadNonDet.wp_pickSuchThat
+  TotalCorrectness.DemonicChoice.MonadNonDet.wp_pickSuchThat
+  TotalCorrectness.AngelicChoice.MonadNonDet.wp_pickSuchThat
   MAlgLift.wp_lift
   StateT.wp_lift
   ReaderT.wp_lift
@@ -423,7 +431,7 @@ elab "#derive_wp" "for" "(" name:term ":" type:term ")" "as" inst:term "with" ar
     have : $name = $inst := by
       rfl
     rewrite [this]
-    repeat' simp [loomWPGenSimp]
+    repeat' simp only [loomWPGenSimp]
     try simp only [loomWPGenRewrite]
     try rfl)
   logInfo m!"{thmCmd}"
