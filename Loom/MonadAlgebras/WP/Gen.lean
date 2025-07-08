@@ -139,9 +139,12 @@ macro_rules
               ]*
               $[done_with $inv_done]?
               $[decreasing $measure]?
-              do $seq:doSeq) =>
-      match (inv_done, measure) with
-      | (some invd_some, some measure_some) => `(doElem|
+              do $seq:doSeq) => do
+      let invd_some ← match inv_done with
+      | some invd_some => withRef invd_some ``($invd_some)
+      | none => ``(¬$t:term)
+      match measure with
+      | some measure_some => `(doElem|
         for _ in Lean.Loop.mk do
           invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
           onDoneGadget (with_name_prefix `done $invd_some:term)
@@ -149,25 +152,10 @@ macro_rules
           if $t then
             $seq:doSeq
           else break)
-      | (none, some measure_some) => `(doElem|
-        for _ in Lean.Loop.mk do
-          invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
-          onDoneGadget (with_name_prefix `done ¬$t:term)
-          decreasingGadget (type_with_name_prefix `decreasing $measure_some:term)
-          if $t then
-            $seq:doSeq
-          else break)
-      | (some invd_some, none) => `(doElem|
+      | none => `(doElem|
         for _ in Lean.Loop.mk do
           invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
           onDoneGadget (with_name_prefix `done $invd_some:term)
-          if $t then
-            $seq:doSeq
-          else break)
-      | (none, none) => `(doElem|
-        for _ in Lean.Loop.mk do
-          invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
-          onDoneGadget (with_name_prefix `done ¬$t:term)
           if $t then
             $seq:doSeq
           else break)

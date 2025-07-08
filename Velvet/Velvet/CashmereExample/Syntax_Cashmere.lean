@@ -224,25 +224,27 @@ macro_rules
               do $seq:doSeq) => do
       let balance := mkIdent `balance_name
       let balanceType <- `(term| Balance)
-      let inv : Array Term <- inv.mapM fun (inv : Term) => withRef inv ``(fun ($(balance):ident : $balanceType)=> $inv)
+      let inv : Array Term <- inv.mapM fun (inv : Term) => withRef inv ``(fun ($(balance):ident : $balanceType)=> with_name_prefix `inv $inv)
       let invd_some <- match inv_done with
-      | some invd_some => withRef invd_some ``(fun ($(balance):ident : $balanceType) => $invd_some)
-      | none => ``(fun ($(balance):ident : $balanceType) => ¬$t:term)
+      | some invd_some => withRef invd_some ``(fun ($(balance):ident : $balanceType) => with_name_prefix `done $invd_some)
+      | none => ``(fun ($(balance):ident : $balanceType) => with_name_prefix `done ¬$t:term)
       match measure with
-      | some measure_some => do
+      | some measure_some =>
+        let measure_some ← withRef measure_some ``(type_with_name_prefix `decreasing ($measure_some:term))
+        do
         `(doElem|
           for _ in Lean.Loop.mk do
-            invariantGadget [ $[type_with_name_prefix `invariant ($inv:term)],* ]
-            onDoneGadget (type_with_name_prefix `done ($invd_some:term))
-            decreasingGadget (type_with_name_prefix `decreasing ($measure_some:term))
+            invariantGadget [ $[$inv:term],* ]
+            onDoneGadget ($invd_some:term)
+            decreasingGadget ($measure_some:term)
             if $t then
               $seq:doSeq
             else break)
       | none => do
         `(doElem|
           for _ in Lean.Loop.mk do
-            invariantGadget [ $[type_with_name_prefix `invariant ($inv:term)],* ]
-            onDoneGadget (type_with_name_prefix `done ($invd_some:term))
+            invariantGadget [ $[$inv:term],* ]
+            onDoneGadget ($invd_some:term)
             if $t then
               $seq:doSeq
             else break)

@@ -420,9 +420,9 @@ attribute [loomWPGenRewrite]
   ReaderT.wp_read
   MAlgLift.wp_throw
 
-elab "#derive_wp" "for" "(" name:term ":" type:term ")" "as" inst:term "with" args:explicitBinders : command=> do
+elab "#derive_wp" nm:ident ? "for" "(" name:term ":" type:term ")" "as" inst:term "with" args:explicitBinders : command=> do
   let args_list ← liftTermElabM do toBracketedBinderArray args
-  let wp_name ← mkFreshIdent name
+  let wp_name ← nm.getDM <| mkFreshIdent name
   let thmCmd <- `(command|
   @[spec, loomWpSimp]
   noncomputable

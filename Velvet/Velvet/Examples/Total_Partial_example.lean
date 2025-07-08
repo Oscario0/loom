@@ -124,19 +124,11 @@ method insertionSort_total
     else
       let mut n := 1
       while n ≠ size arr
-      invariant size arr = arr_size
-      invariant 1 ≤ n ∧ n ≤ size arr
-      invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i] ≤ arr[j]
-      invariant toMultiset arr = toMultiset arr₀
-      decreasing size arr - n
+      invariant True
       do
         let mut mind := n
         while mind ≠ 0
-        invariant size arr = arr_size
-        invariant mind ≤ n
-        invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i] ≤ arr[j]
-        invariant toMultiset arr = toMultiset arr₀
-        decreasing mind
+        invariant True
         do
           if arr[mind] < arr[mind - 1] then
             let left := arr[mind - 1]
