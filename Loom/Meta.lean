@@ -434,5 +434,4 @@ elab "#derive_wp" "for" "(" name:term ":" type:term ")" "as" inst:term "with" ar
     repeat' simp only [loomWPGenSimp]
     try simp only [loomWPGenRewrite]
     try rfl)
-  logInfo m!"{thmCmd}"
   elabCommand thmCmd
