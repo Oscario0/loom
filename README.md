@@ -18,21 +18,6 @@ For automated weakest precondition generation, `Loom` uses Monad Transformer Alg
 
 To build the project run `lake build` command in terminal from project's root directory.
 
-To use `Loom` in your project add the following lines to `lakefile.toml` :
-
-```toml
-[[require]]
-name = "loom"
-git = "https://github.com/verse-lab/loom.git"
-rev = "main"
-```
-
-Or the following lines to `lakefile.lean` :
-
-```lean
-require "verse-lab" / "loom" @ git "main"
-```
-
 `Loom` has the following dependencies:
 
 - [Lean 4](https://lean-lang.org/) - foundational program verifier in which the framework was implemented. Version 4.20 is required.
@@ -42,7 +27,9 @@ require "verse-lab" / "loom" @ git "main"
 - [lean-auto](https://github.com/leanprover-community/lean-auto) - SMT backend for `Velvet`. 
 Note that as `lean-auto` depends on `cvc5` which is not available for native Windows, therefore `Velvet` won't work on native Windows as well, but `Loom` is still available (use `lake build Loom` for standalone build)
 
-## Structure
+You need `cvc5` to be on your PATH to run `Velvet` examples.  
+
+## Navigation Guide
 
 The repository consists of 2 key parts:
 
@@ -72,33 +59,35 @@ This folder contains two framework examples powered by Loom: `Velvet` and `Cashm
 
 - Both of them are supplied with `loom_solver`, `loom_solve`, `loom_solve!` and `loom_solve?` tactics.
 
-  `loom_solver` is a main tactic for discharging the goals. This tactic can be set by user with Lean `macro_rules`:
+  `loom_solve` tactic produces goals for VCs (each one corresponds to a single `invariant`/`assert`/`ensures` annotation in the program) with human-readable hypotheses and tries to discharge them with `loom_solver`.
+
+  `loom_solver` is a main tactic for discharging VCs. This tactic can be set by user with Lean `macro_rules`:
     ```lean
     macro_rules
-    | `(tactic|loom_solver) =>
-        `(tactic|aesop)
+    | `(tactic|loom_solver) => `(tactic|aesop)
     ```
 
   For `Velvet` it is `auto` tactic with hints for closing complex goals, for `Cashmere` it is `aesop` tactic with additional theorems for proof reconstruction.
 
-  `loom_solve` tactic produces atomic goals with human-readable hypotheses and tries to discharge them with `loom_solver`.
-
-  `loom_solve!` tactic works similarly to `loom_solve`, also highlights invariants and pre/post-conditions that were not proved by `loom_solver`.
+  `loom_solve!` tactic works similarly to `loom_solve`, but also highlights invariants and pre/post-conditions that were not proven by `loom_solver`.
 
   `loom_solve?` tactic suggests a sequence of more low-level tactics to get the same result as `loom_solve`.
 
 
-Full list of implemented examples:
+#### Full list of implemented examples
 
-- `CaseStudies/Cashmere` - directory with `Cashmere` examples on different monad effects handled by `Loom`
-  - `Cashmere.lean` - State, Divergence, Except and Non-Determenistic effects in a simple example with a bank account 
-  - `CashmereIncorrectnessLogic.lean` - using Non-Determenism to prove that there exists a bug in a program
-- `CaseStudies/Velvet/VelvetExamples` - directory with `Velvet` examples
+Examples are organized in directories by their verifier:
+
+- `CaseStudies/Cashmere` - directory with examples from Section 2 of the paper
+  - `Cashmere.lean` - definition of the computational monad for `Cashmere` examples as well as correctness proofs for all case studies up to Section 2.6
+
+  - `CashmereIncorrectnessLogic.lean` - example from 2.7: using Angelic Non-Determenism to prove that there exists a bug in a program
+- `CaseStudies/Velvet/VelvetExamples` - directory with examples from Section 8 of the paper
 
   - `Examples.lean` - basic Dafny-like examples (`insertionSort`, `squareRoot`) in `Velvet` with partial correctness semantics
 
-  - `Examples_Total.lean` - similar examples in Total semantics, also contains a `cbrt` example for manual proof after SMT failure
+  - `Examples_Total.lean` - similar examples but in Total semantics, also contains a `cbrt` example for manual proof after SMT failure
 
-  - `Total_Partial_example.lean` - concluding the post-condition in total semantics from total semantics termination and post-condition in partial semantics effortlessly for `insertionSort`
+  - `Total_Partial_example.lean` - concluding functional correctness in total semantics from termination and functional correctness in partial semantics effortlessly for `insertionSort`
   
-  - `SpMSpV_Example.lean` - proving sparse matrix multiplication algorithms in Lean 4 using theorems and results produced by `Velvet`
+  - `SpMSpV_Example.lean` - proving sparse matrix multiplication algorithms mixing automated and interactive proof modes with "two-layered paradigm"
