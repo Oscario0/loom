@@ -14,15 +14,15 @@ open Lean.Elab.Term.DoNames
 open ExceptionAsSuccess
 
 instance angelic_exception: MonadExceptOf String CashmereM where
-  throw e := liftM (m := ExceptT String (StateT Balance DivM)) (throw e)
+  throw e := liftM (m := ExceptT String (StateT Bal DivM)) (throw e)
   tryCatch := fun x _ => x
 
 open TotalCorrectness AngelicChoice
 
 
-#derive_lifted_wp for (get : StateT Balance DivM Balance) as CashmereM Balance
-#derive_lifted_wp (res: Balance) for (set res : StateT Balance DivM PUnit) as CashmereM PUnit
-#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Balance DivM) PUnit) as CashmereM PUnit
+#derive_lifted_wp for (get : StateT Bal DivM Bal) as CashmereM Bal
+#derive_lifted_wp (res: Bal) for (set res : StateT Bal DivM PUnit) as CashmereM PUnit
+#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Bal DivM) PUnit) as CashmereM PUnit
 --small aesop upgrade
 add_aesop_rules safe (by linarith)
 
@@ -45,9 +45,9 @@ bdef withdrawSessionAngelic returns (u: Unit)
 
 
 @[aesop safe]
-theorem List.sum_lt (x: Balance) : x < y -> x < ([Int.toNat y]).sum := by intro h; simp [List.sum, *]
+theorem List.sum_lt (x: Bal) : x < y -> x < ([Int.toNat y]).sum := by intro h; simp [List.sum, *]
 @[aesop safe]
-theorem balance_lt (x: Balance) : x < x + 1 := by linarith
+theorem balance_lt (x: Bal) : x < x + 1 := by linarith
 
 
 prove_correct withdrawSessionAngelic by

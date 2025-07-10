@@ -13,32 +13,10 @@ import Loom.MonadAlgebras.WP.Tactic
 
 open Lean.Elab.Term.DoNames
 
-/-
-In this section we are going to demonstrate \tool by building a multi-modal verifier for a simple
-imperative \while-style language shallowly embedded into \lean.
-We will illustrate how one can extend language with additional effects in \tool
-on a simple example implementing a procedure for a safe back withdrawal.
--/
-/-We start with a simple example of a function that withdraws
-an amount from a balance implemented in a lean State monad.
--/
-/-
-The state of \code{withdraw} procedure is the integer balance value.
-The function \code{withdraw} reads the current balance from the state (line 3),
-and then updates the state with the new decremented balance (line 4).
-%
-Now, to make this code look more like imperative code,
-we can implemented some macro-expansion to add a \code{balance := ...}
-syntax to update the balance state as well as,
-\code{return} statement to specify the return value and \code{require/ensures} statements
-to specify the pre- and post-conditions.
-%
--/
-
 open ExceptionAsFailure
 
 instance demonic_exception: MonadExceptOf String CashmereM where
-  throw e := liftM (m := ExceptT String (StateT Balance DivM)) (throw e)
+  throw e := liftM (m := ExceptT String (StateT Bal DivM)) (throw e)
   tryCatch := fun x _ => x
 
 section
@@ -46,9 +24,9 @@ section
 
 open PartialCorrectness DemonicChoice
 
-#derive_lifted_wp for (get : StateT Balance DivM Balance) as CashmereM Balance
-#derive_lifted_wp (res: Balance) for (set res : StateT Balance DivM PUnit) as CashmereM PUnit
-#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Balance DivM) PUnit) as CashmereM PUnit
+#derive_lifted_wp for (get : StateT Bal DivM Bal) as CashmereM Bal
+#derive_lifted_wp (res: Bal) for (set res : StateT Bal DivM PUnit) as CashmereM PUnit
+#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Bal DivM) PUnit) as CashmereM PUnit
 
 end
 
@@ -56,9 +34,9 @@ section
 
 open TotalCorrectness DemonicChoice
 
-#derive_lifted_wp for (get : StateT Balance DivM Balance) as CashmereM Balance
-#derive_lifted_wp (res: Balance) for (set res : StateT Balance DivM PUnit) as CashmereM PUnit
-#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Balance DivM) PUnit) as CashmereM PUnit
+#derive_lifted_wp for (get : StateT Bal DivM Bal) as CashmereM Bal
+#derive_lifted_wp (res: Bal) for (set res : StateT Bal DivM PUnit) as CashmereM PUnit
+#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Bal DivM) PUnit) as CashmereM PUnit
 
 end
 

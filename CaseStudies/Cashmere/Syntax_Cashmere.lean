@@ -13,8 +13,8 @@ import CaseStudies.Theory
 import CaseStudies.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
 
-abbrev Balance := Int
-abbrev CashmereM := NonDetT (ExceptT String (StateT Balance DivM))
+abbrev Bal := Int
+abbrev CashmereM := NonDetT (ExceptT String (StateT Bal DivM))
 
 open Lean Elab Command Term Meta Lean.Parser
 
@@ -223,7 +223,7 @@ macro_rules
               $[decreasing $measure]?
               do $seq:doSeq) => do
       let balance := mkIdent `balance_name
-      let balanceType <- `(term| Balance)
+      let balanceType <- `(term| Bal)
       let inv : Array Term <- inv.mapM fun (inv : Term) => withRef inv ``(fun ($(balance):ident : $balanceType)=> with_name_prefix `inv $inv)
       let invd_some <- match inv_done with
       | some invd_some => withRef invd_some ``(fun ($(balance):ident : $balanceType) => with_name_prefix `done $invd_some)
@@ -316,11 +316,11 @@ elab_rules : command
     let balanceOld := mkIdent `balanceOld
     let bal := mkIdent `balance
     let thmCmd <- withRef tkp `(command| lemma $lemmaName $bindersIdents* :
-      ∀ $(balanceOld) : Balance,
+      ∀ $(balanceOld) : Bal,
       triple
-        (fun $(bal):ident : Balance => ($bal:ident = $(balanceOld)) ∧ $pre)
+        (fun $(bal):ident : Bal => ($bal:ident = $(balanceOld)) ∧ $pre)
         ($name $ids*)
-        (fun $retId => fun $ret : Balance => $post) := $proof)
+        (fun $retId => fun $ret : Bal => $post) := $proof)
     Command.elabCommand thmCmd
     velvetObligations.modify (·.erase name.getId)
 

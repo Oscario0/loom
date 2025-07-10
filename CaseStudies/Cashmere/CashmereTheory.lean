@@ -14,7 +14,7 @@ section
 
 open ExceptionAsSuccess TotalCorrectness
 
-theorem false_imp_except (pre: Balance → Prop) (code: ExceptT String (StateT Balance DivM) Balance) :
+theorem false_imp_except (pre: Bal → Prop) (code: ExceptT String (StateT Bal DivM) Bal) :
   triple pre code ⊥ → ∀ s, pre s -> ∃ (d: String), code.run.run' s = DivM.res (Except.error d) := by
     simp [triple, wp_part_eq, StateT.wp_eq, DivM.wp_eq]
     intro tr s; specialize tr s; revert tr; simp
