@@ -11,8 +11,6 @@ import CaseStudies.Cashmere.Syntax_Cashmere
 
 open Lean.Elab.Term.DoNames
 
-open Queue
-
 open ExceptionAsSuccess
 
 instance angelic_exception: MonadExceptOf String CashmereM where
@@ -31,13 +29,13 @@ add_aesop_rules safe (by linarith)
 bdef withdrawSessionAngelic returns (u: Unit)
   require balance > 0
   ensures False do
-  let mut amounts ← pick (Queue Nat)
+  let mut amounts ← pick (List Nat)
   while amounts.nonEmpty
   invariant balance >= 0
   invariant balance < amounts.sum
   decreasing amounts.length
   do
-    let amount := amounts.dequeue
+    let amount := amounts.head!
     if amount > balance then
       throw "Insufficient funds"
     else
@@ -47,7 +45,7 @@ bdef withdrawSessionAngelic returns (u: Unit)
 
 
 @[aesop safe]
-theorem Queue.sum_lt (x: Balance) : x < y -> x < (Queue.mk [Int.toNat y]).sum := by intro h; simp [Queue.sum, *]
+theorem List.sum_lt (x: Balance) : x < y -> x < ([Int.toNat y]).sum := by intro h; simp [List.sum, *]
 @[aesop safe]
 theorem balance_lt (x: Balance) : x < x + 1 := by linarith
 

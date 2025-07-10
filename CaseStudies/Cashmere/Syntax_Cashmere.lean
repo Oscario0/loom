@@ -327,64 +327,37 @@ elab_rules : command
 set_option linter.unusedVariables false in
 def atomicAssertion {α : Type u} (n : Name) (a : α) := a
 
---which is definitely a queue, not a list
-structure Queue (α : Type) where
-  elems : List α
-deriving Inhabited
+def List.nonEmpty (q : List α) : Prop :=
+  ¬q.isEmpty
 
-namespace Queue
-
-def empty : Queue α :=
-  { elems := [] }
-
-def isEmpty (q : Queue α) : Prop :=
-  q.elems.isEmpty
-
-def nonEmpty (q : Queue α) : Prop :=
-  ¬q.elems.isEmpty
-
-def enqueue (x : α) (q : Queue α) : Queue α :=
-  { elems := x :: q.elems}
-
-def dequeue [AddMonoid α] (q : Queue α) : α :=
-  match q.elems with
-  | [] => 0
-  | (x :: _) => x
-
-def tail (q : Queue α) : Queue α :=
-  match q.elems with
-  | [] => { elems := [] }
-  | (_ :: xs) => { elems := xs }
-
-def sum [AddMonoid α] (q : Queue α) : α := q.elems.foldr (· + ·) 0
-
-def length (q : Queue α) : Nat := q.elems.length
-
-instance (q : Queue α) : Decidable q.nonEmpty :=
-  inferInstanceAs (Decidable (¬q.elems.isEmpty))
+instance (q : List α) : Decidable q.nonEmpty :=
+  inferInstanceAs (Decidable (¬q.isEmpty))
 
 @[aesop unsafe]
-theorem tail_length : ∀ q : Queue Nat, q.nonEmpty → q.tail.length < q.length := by
+theorem tail_length : ∀ q : List Nat, q.nonEmpty → q.tail.length < q.length := by
   intro q nemp
-  simp [Queue.nonEmpty] at nemp
-  simp [Queue.tail]
+  simp [List.nonEmpty] at nemp
+  simp [List.tail]
   split
   { contradiction }
-  simp [Queue.length]
-  rename_i x
-  simp [x]
+  simp [List.length]
 
 @[aesop norm]
-theorem tail_sum : ∀ q : Queue Nat, nonEmpty q → q.sum = q.tail.sum + q.dequeue := by
-  intro _ q
-  simp [Queue.dequeue, Queue.tail, Queue.sum]
-  split <;> rename_i x <;> simp [x]
+theorem tail_sum (q: List Nat) (hnemp: q.nonEmpty): q.sum = q.tail.sum + q.head! := by
+  simp [List.head!, List.tail]
+  simp [List.nonEmpty] at hnemp
+  split <;> rename_i x <;> simp [hnemp]
   rw [add_comm]
 
-@[aesop norm]
-theorem sum_zero : ∀ q : Queue Nat, ¬q.nonEmpty → q.sum = 0 := by
-  intro q nemp
-  simp [Queue.nonEmpty] at nemp
-  simp [Queue.sum, nemp]
+@[aesop unsafe]
+theorem non_zero_length (q: List Nat) (hnemp: q.nonEmpty): 0 < q.length := by
+  simp [List.nonEmpty] at hnemp
+  unfold List.length
+  split <;> simp [hnemp] at *
 
-end Queue
+
+@[aesop norm]
+theorem sum_zero : ∀ q : List Nat, ¬q.nonEmpty → q.sum = 0 := by
+  intro q nemp
+  simp [List.nonEmpty] at nemp
+  simp [List.sum, nemp]

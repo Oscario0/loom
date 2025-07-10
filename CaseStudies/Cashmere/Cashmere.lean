@@ -13,7 +13,6 @@ import Loom.MonadAlgebras.WP.Tactic
 
 open Lean.Elab.Term.DoNames
 
-open Queue
 /-
 In this section we are going to demonstrate \tool by building a multi-modal verifier for a simple
 imperative \while-style language shallowly embedded into \lean.
@@ -77,16 +76,16 @@ prove_correct withdraw by
   loom_solve
 
 open PartialCorrectness DemonicChoice in
-bdef withdrawSession (inAmounts : Queue Nat) returns (u: Unit)
-  ensures balance + inAmounts.sum = balanceOld do
-  let mut amounts := inAmounts
+bdef withdrawSession (amounts : List Nat) returns (u: Unit)
+  ensures balance + amounts.sum = balanceOld do
+  let mut tmp := amounts
   let balancePrev := balance
-  while (amounts.nonEmpty)
-  invariant amounts.sum + balancePrev = inAmounts.sum + balance
+  while tmp.nonEmpty
+  invariant balance + amounts.sum = balancePrev + tmp.sum
   do
-    let amount := amounts.dequeue
+    let amount := tmp.head!
     balance := balance - amount
-    amounts := amounts.tail
+    tmp := tmp.tail
   return
 
 
@@ -96,17 +95,17 @@ prove_correct withdrawSession by
   loom_solve!
 
 open TotalCorrectness DemonicChoice in
-bdef withdrawSessionTot (inAmounts : Queue Nat) returns (u: Unit)
-  ensures balance + inAmounts.sum = balanceOld do
-  let mut amounts := inAmounts
+bdef withdrawSessionTot (amounts : List Nat) returns (u: Unit)
+  ensures balance + amounts.sum = balanceOld do
+  let mut tmp := amounts
   let balancePrev := balance
-  while (amounts.nonEmpty)
-  invariant amounts.sum + balancePrev = inAmounts.sum + balance
-  decreasing amounts.length
+  while tmp.nonEmpty
+  invariant balance + amounts.sum = balancePrev + tmp.sum
+  decreasing tmp.length
   do
-    let amount := amounts.dequeue
+    let amount := tmp.head!
     balance := balance - amount
-    amounts := amounts.tail
+    tmp := tmp.tail
   return
 
 open TotalCorrectness DemonicChoice in
@@ -115,22 +114,22 @@ prove_correct withdrawSessionTot by
   loom_solve!
 
 open TotalCorrectness DemonicChoice in
-bdef withdrawSessionExcept (inAmounts : Queue Nat) returns (u: Unit)
-  require balance >= inAmounts.sum
+bdef withdrawSessionExcept (amounts : List Nat) returns (u: Unit)
+  require balance >= amounts.sum
   ensures balance >= 0
-  ensures balance + inAmounts.sum = balanceOld do
-  let mut amounts := inAmounts
+  ensures balance + amounts.sum = balanceOld do
+  let mut tmp := amounts
   let balancePrev := balance
-  while (amounts.nonEmpty)
-  invariant amounts.sum + balancePrev = inAmounts.sum + balance
-  invariant balance >= amounts.sum
-  decreasing amounts.length do
-    let amount := amounts.dequeue
+  while tmp.nonEmpty
+  invariant balance + amounts.sum = balancePrev + tmp.sum
+  invariant balance >= tmp.sum
+  decreasing tmp.length do
+    let amount := tmp.head!
     if amount > balance then
       throw "Insufficient funds"
     else
       balance := balance - amount
-    amounts := amounts.tail
+    tmp := tmp.tail
   return
 
 open TotalCorrectness DemonicChoice in
@@ -139,23 +138,23 @@ prove_correct withdrawSessionExcept by
   loom_solve!
 
 open TotalCorrectness DemonicChoice in
-bdef withdrawSessionNonDet returns (history : Queue Nat)
+bdef withdrawSessionNonDet returns (history : List Nat)
   require balance >= 0
   ensures balance >= 0
   ensures balance + history.sum = balanceOld do
-  let (inAmounts : Queue Nat) :| inAmounts.sum ≤ balance
-  let mut amounts := inAmounts
+  let (amounts : List Nat) :| amounts.sum ≤ balance
+  let mut tmp := amounts
   let balancePrev := balance
-  while amounts.nonEmpty
-  invariant amounts.sum + balancePrev = inAmounts.sum + balance
-  decreasing amounts.length do
-    let amount := amounts.dequeue
+  while tmp.nonEmpty
+  invariant balance + amounts.sum = balancePrev + tmp.sum
+  decreasing tmp.length do
+    let amount := tmp.head!
     if amount > balance then
       throw "Insufficient funds"
     else
       balance := balance - amount
-    amounts := amounts.tail
-  return inAmounts
+    tmp := tmp.tail
+  return amounts
 
 open TotalCorrectness DemonicChoice in
 prove_correct withdrawSessionNonDet by
@@ -163,7 +162,7 @@ prove_correct withdrawSessionNonDet by
   loom_solve!
 
 #eval (withdraw 2).run.run.run 10
-#eval (withdrawSession ({elems := [1, 2, 6]})).run.run.run 12
+#eval (withdrawSession ([1, 2, 6])).run.run.run 12
 
-#eval (withdrawSessionExcept ({elems := {1,2,3}})).run.run.run 8
-#eval (withdrawSessionExcept ({elems := [1,2,6]})).run.run.run 8
+#eval (withdrawSessionExcept ({1,2,3})).run.run.run 8
+#eval (withdrawSessionExcept ([1,2,6])).run.run.run 8
