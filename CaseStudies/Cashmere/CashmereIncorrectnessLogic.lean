@@ -3,39 +3,43 @@ import Loom.MonadAlgebras.Instances.ExceptT
 import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
+import Mathlib.Tactic.Common
+import Mathlib.Tactic.Linarith
 import Lean
 
 import CaseStudies.Cashmere.Syntax_Cashmere
 
 open Lean.Elab.Term.DoNames
 
-open Queue
-
 open ExceptionAsSuccess
 
-instance : MonadExceptOf String CashmereM where
-  throw e := liftM (m := ExceptT String (StateT Balance DivM)) (throw e)
+instance angelic_exception: MonadExceptOf String CashmereM where
+  throw e := liftM (m := ExceptT String (StateT Bal DivM)) (throw e)
   tryCatch := fun x _ => x
 
 open TotalCorrectness AngelicChoice
 
 
-#derive_lifted_wp for (get : StateT Balance DivM Balance) as CashmereM Balance
-#derive_lifted_wp (res: Balance) for (set res : StateT Balance DivM PUnit) as CashmereM PUnit
-#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Balance DivM) PUnit) as CashmereM PUnit
+#derive_lifted_wp for (get : StateT Bal DivM Bal) as CashmereM Bal
+#derive_lifted_wp (res: Bal) for (set res : StateT Bal DivM PUnit) as CashmereM PUnit
+#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Bal DivM) PUnit) as CashmereM PUnit
 --small aesop upgrade
 add_aesop_rules safe (by linarith)
 
+--example from Section 2.7
+
+--if we can ensure False, then we must have thrown an exception,
+--therefore there is a session which brings balance below zero
 bdef withdrawSessionAngelic returns (u: Unit)
   require balance > 0
   ensures False do
-  let mut amounts ← pick (Queue Nat)
+  let mut amounts ← pick (List Nat)
   while amounts.nonEmpty
   invariant balance >= 0
   invariant balance < amounts.sum
   decreasing amounts.length
   do
-    let amount := amounts.dequeue
+    let amount := amounts.head!
     if amount > balance then
       throw "Insufficient funds"
     else
@@ -45,9 +49,9 @@ bdef withdrawSessionAngelic returns (u: Unit)
 
 
 @[aesop safe]
-theorem Queue.sum_lt (x: Balance) : x < y -> x < (Queue.mk [Int.toNat y]).sum := by intro h; simp [Queue.sum, *]
+theorem List.sum_lt (x: Bal) : x < y -> x < ([Int.toNat y]).sum := by intro h; simp [List.sum, *]
 @[aesop safe]
-theorem balance_lt (x: Balance) : x < x + 1 := by linarith
+theorem balance_lt (x: Bal) : x < x + 1 := by linarith
 
 
 prove_correct withdrawSessionAngelic by

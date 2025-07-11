@@ -13,33 +13,10 @@ import Loom.MonadAlgebras.WP.Tactic
 
 open Lean.Elab.Term.DoNames
 
-open Queue
-/-
-In this section we are going to demonstrate \tool by building a multi-modal verifier for a simple
-imperative \while-style language shallowly embedded into \lean.
-We will illustrate how one can extend language with additional effects in \tool
-on a simple example implementing a procedure for a safe back withdrawal.
--/
-/-We start with a simple example of a function that withdraws
-an amount from a balance implemented in a lean State monad.
--/
-/-
-The state of \code{withdraw} procedure is the integer balance value.
-The function \code{withdraw} reads the current balance from the state (line 3),
-and then updates the state with the new decremented balance (line 4).
-%
-Now, to make this code look more like imperative code,
-we can implemented some macro-expansion to add a \code{balance := ...}
-syntax to update the balance state as well as,
-\code{return} statement to specify the return value and \code{require/ensures} statements
-to specify the pre- and post-conditions.
-%
--/
-
 open ExceptionAsFailure
 
-instance : MonadExceptOf String CashmereM where
-  throw e := liftM (m := ExceptT String (StateT Balance DivM)) (throw e)
+instance demonic_exception: MonadExceptOf String CashmereM where
+  throw e := liftM (m := ExceptT String (StateT Bal DivM)) (throw e)
   tryCatch := fun x _ => x
 
 section
@@ -47,9 +24,9 @@ section
 
 open PartialCorrectness DemonicChoice
 
-#derive_lifted_wp for (get : StateT Balance DivM Balance) as CashmereM Balance
-#derive_lifted_wp (res: Balance) for (set res : StateT Balance DivM PUnit) as CashmereM PUnit
-#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Balance DivM) PUnit) as CashmereM PUnit
+#derive_lifted_wp for (get : StateT Bal DivM Bal) as CashmereM Bal
+#derive_lifted_wp (res: Bal) for (set res : StateT Bal DivM PUnit) as CashmereM PUnit
+#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Bal DivM) PUnit) as CashmereM PUnit
 
 end
 
@@ -57,15 +34,16 @@ section
 
 open TotalCorrectness DemonicChoice
 
-#derive_lifted_wp for (get : StateT Balance DivM Balance) as CashmereM Balance
-#derive_lifted_wp (res: Balance) for (set res : StateT Balance DivM PUnit) as CashmereM PUnit
-#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Balance DivM) PUnit) as CashmereM PUnit
+#derive_lifted_wp for (get : StateT Bal DivM Bal) as CashmereM Bal
+#derive_lifted_wp (res: Bal) for (set res : StateT Bal DivM PUnit) as CashmereM PUnit
+#derive_lifted_wp (s : String) for (throw s : ExceptT String (StateT Bal DivM) PUnit) as CashmereM PUnit
 
 end
 
 --small aesop upgrade
 add_aesop_rules safe (by linarith)
 
+--simple withdraw, Section 2.2
 bdef withdraw (amount : Nat) returns (u: Unit)
   ensures balance + amount = balanceOld do
   balance := balance - amount
@@ -76,17 +54,18 @@ prove_correct withdraw by
   dsimp [withdraw]
   loom_solve
 
+--withdraw a list of values, Section 2.3
 open PartialCorrectness DemonicChoice in
-bdef withdrawSession (inAmounts : Queue Nat) returns (u: Unit)
-  ensures balance + inAmounts.sum = balanceOld do
-  let mut amounts := inAmounts
+bdef withdrawSession (amounts : List Nat) returns (u: Unit)
+  ensures balance + amounts.sum = balanceOld do
+  let mut tmp := amounts
   let balancePrev := balance
-  while (amounts.nonEmpty)
-  invariant amounts.sum + balancePrev = inAmounts.sum + balance
+  while tmp.nonEmpty
+  invariant balance + amounts.sum = balancePrev + tmp.sum
   do
-    let amount := amounts.dequeue
+    let amount := tmp.head!
     balance := balance - amount
-    amounts := amounts.tail
+    tmp := tmp.tail
   return
 
 
@@ -95,18 +74,19 @@ prove_correct withdrawSession by
   dsimp [withdrawSession]
   loom_solve!
 
+--adding termination measure for total correctness, Section 2.4
 open TotalCorrectness DemonicChoice in
-bdef withdrawSessionTot (inAmounts : Queue Nat) returns (u: Unit)
-  ensures balance + inAmounts.sum = balanceOld do
-  let mut amounts := inAmounts
+bdef withdrawSessionTot (amounts : List Nat) returns (u: Unit)
+  ensures balance + amounts.sum = balanceOld do
+  let mut tmp := amounts
   let balancePrev := balance
-  while (amounts.nonEmpty)
-  invariant amounts.sum + balancePrev = inAmounts.sum + balance
-  decreasing amounts.length
+  while tmp.nonEmpty
+  invariant balance + amounts.sum = balancePrev + tmp.sum
+  decreasing tmp.length
   do
-    let amount := amounts.dequeue
+    let amount := tmp.head!
     balance := balance - amount
-    amounts := amounts.tail
+    tmp := tmp.tail
   return
 
 open TotalCorrectness DemonicChoice in
@@ -114,23 +94,24 @@ prove_correct withdrawSessionTot by
   dsimp [withdrawSessionTot]
   loom_solve!
 
+--withdraw a concrete session and throw an exception if balance goes below zero, Section 2.5
 open TotalCorrectness DemonicChoice in
-bdef withdrawSessionExcept (inAmounts : Queue Nat) returns (u: Unit)
-  require balance >= inAmounts.sum
+bdef withdrawSessionExcept (amounts : List Nat) returns (u: Unit)
+  require balance >= amounts.sum
   ensures balance >= 0
-  ensures balance + inAmounts.sum = balanceOld do
-  let mut amounts := inAmounts
+  ensures balance + amounts.sum = balanceOld do
+  let mut tmp := amounts
   let balancePrev := balance
-  while (amounts.nonEmpty)
-  invariant amounts.sum + balancePrev = inAmounts.sum + balance
-  invariant balance >= amounts.sum
-  decreasing amounts.length do
-    let amount := amounts.dequeue
+  while tmp.nonEmpty
+  invariant balance + amounts.sum = balancePrev + tmp.sum
+  invariant balance >= tmp.sum
+  decreasing tmp.length do
+    let amount := tmp.head!
     if amount > balance then
       throw "Insufficient funds"
     else
       balance := balance - amount
-    amounts := amounts.tail
+    tmp := tmp.tail
   return
 
 open TotalCorrectness DemonicChoice in
@@ -138,32 +119,35 @@ prove_correct withdrawSessionExcept by
   dsimp [withdrawSessionExcept]
   loom_solve!
 
+--withdraw a session that does not bring balance below zero, Section 2.6
 open TotalCorrectness DemonicChoice in
-bdef withdrawSessionNonDet returns (history : Queue Nat)
+bdef withdrawSessionNonDet returns (history : List Nat)
   require balance >= 0
   ensures balance >= 0
   ensures balance + history.sum = balanceOld do
-  let (inAmounts : Queue Nat) :| inAmounts.sum ≤ balance
-  let mut amounts := inAmounts
+  let (amounts : List Nat) :| amounts.sum ≤ balance
+  let mut tmp := amounts
   let balancePrev := balance
-  while amounts.nonEmpty
-  invariant amounts.sum + balancePrev = inAmounts.sum + balance
-  decreasing amounts.length do
-    let amount := amounts.dequeue
+  while tmp.nonEmpty
+  invariant balance + amounts.sum = balancePrev + tmp.sum
+  decreasing tmp.length do
+    let amount := tmp.head!
     if amount > balance then
       throw "Insufficient funds"
     else
       balance := balance - amount
-    amounts := amounts.tail
-  return inAmounts
+    tmp := tmp.tail
+  return amounts
 
 open TotalCorrectness DemonicChoice in
 prove_correct withdrawSessionNonDet by
   dsimp [withdrawSessionNonDet]
   loom_solve!
 
-#eval (withdraw 2).run.run.run 10
-#eval (withdrawSession ({elems := [1, 2, 6]})).run.run.run 12
+--we can actually run our code
 
-#eval (withdrawSessionExcept ({elems := {1,2,3}})).run.run.run 8
-#eval (withdrawSessionExcept ({elems := [1,2,6]})).run.run.run 8
+#eval (withdraw 2).run.run.run 10
+#eval (withdrawSession ([1, 2, 6])).run.run.run 12
+
+#eval (withdrawSessionExcept ({1,2,3})).run.run.run 8
+#eval (withdrawSessionExcept ([1,2,6])).run.run.run 8

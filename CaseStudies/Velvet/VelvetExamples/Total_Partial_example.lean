@@ -27,11 +27,7 @@ variable {arrNat} [arr_inst: TArray Nat arrNat]
 -- set_option trace.profiler true
 attribute [local solverHint] TArray.multiSet_swap
 
-set_option quotPrecheck false in
-notation "[totl|" t "]" => open TotalCorrectness TotalCorrectness.DemonicChoice in t
-set_option quotPrecheck false in
-notation "[part|" t "]" => open PartialCorrectness PartialCorrectness.DemonicChoice in t
-
+--we prove invariants in partial correctness
 open PartialCorrectness DemonicChoice in
 method insertionSort_part
   (mut arr: arrInt) return (u: Unit)
@@ -47,7 +43,7 @@ method insertionSort_part
       let mut n := 1
       while n ≠ size arr
       invariant size arr = arr_size
-      invariant 1 ≤ n ∧ n ≤ size arr
+      invariant n ≤ size arr
       invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i] ≤ arr[j]
       invariant toMultiset arr = toMultiset arr₀
       do
@@ -59,7 +55,7 @@ method insertionSort_part
         invariant toMultiset arr = toMultiset arr₀
         do
           if arr[mind] < arr[mind - 1] then
-            swap arr[mind], arr[mind - 1]
+            swap arr[mind] arr[mind - 1]
           mind := mind - 1
         n := n + 1
       return
@@ -68,6 +64,7 @@ prove_correct insertionSort_part by
   dsimp [insertionSort_part]
   loom_solve!
 
+--we prove termination in total correctness
 open TotalCorrectness DemonicChoice in
 method insertionSort_termination
   (mut arr: arrInt) return (u: Unit)
@@ -82,17 +79,16 @@ method insertionSort_termination
       let mut n := 1
       while n ≠ size arr
       invariant size arr = arr_size
-      invariant 1 ≤ n ∧ n ≤ size arr
+      invariant n ≤ size arr
       decreasing size arr - n
       do
         let mut mind := n
         while mind ≠ 0
         invariant size arr = arr_size
-        invariant mind ≤ n
         decreasing mind
         do
           if arr[mind] < arr[mind - 1] then
-            swap arr[mind], arr[mind - 1]
+            swap arr[mind] arr[mind - 1]
           mind := mind - 1
         n := n + 1
       return
@@ -101,9 +97,9 @@ prove_correct insertionSort_termination by
   dsimp [insertionSort_termination]
   loom_solve!
 
-
+--we prove the postcondition just by combination of the two triples above
 open TotalCorrectness DemonicChoice in
-method insertionSort_total
+method insertionSort_result
   (mut arr: arrInt) return (u: Unit)
   ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < size arr → arrNew[i] ≤ arrNew[j]
   ensures toMultiset arr = toMultiset arrNew
@@ -123,16 +119,16 @@ method insertionSort_total
         invariant True
         do
           if arr[mind] < arr[mind - 1] then
-            swap arr[mind], arr[mind - 1]
+            swap arr[mind] arr[mind - 1]
           mind := mind - 1
         n := n + 1
       return
 open TotalCorrectness DemonicChoice in
-prove_correct insertionSort_total by
+prove_correct insertionSort_result by
   have triple_termination := insertionSort_termination_correct arr
   have triple_res := insertionSort_part_correct arr
   exact VelvetM.total_decompose_triple
-    (insertionSort_termination arr) (insertionSort_part arr) (insertionSort_total arr)
+    (insertionSort_termination arr) (insertionSort_part arr) (insertionSort_result arr)
     (eqx := by rfl) (eqy := by rfl)
     triple_termination
     triple_res

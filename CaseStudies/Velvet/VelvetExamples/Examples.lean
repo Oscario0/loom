@@ -15,7 +15,7 @@ open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
 set_option auto.smt.trust true
 set_option auto.smt true
-set_option auto.smt.timeout 10
+set_option auto.smt.timeout 4
 set_option auto.smt.solver.name "cvc5"
 
 attribute [solverHint] TArray.get_set TArray.size_set
@@ -62,6 +62,7 @@ variable {arrNat} [arr_inst: TArray Nat arrNat]
 -- set_option trace.profiler true
 attribute [local solverHint] TArray.multiSet_swap
 
+--partial correctness version of insertionSort
 method insertionSort
   (mut arr: arrInt) return (u: Unit)
   require 1 ≤ size arr
@@ -87,10 +88,7 @@ method insertionSort
       done_with mind = 0
       do
         if arr[mind] < arr[mind - 1] then
-          let left := arr[mind - 1]
-          let right := arr[mind]
-          arr[mind - 1] := right
-          arr[mind] := left
+          swap arr[mind - 1] arr[mind]
         mind := mind - 1
       n := n + 1
     return
@@ -121,9 +119,12 @@ end insertionSort
 
 section squareRoot
 
+--partial correctness version of square root
 method sqrt (x: ℕ) return (res: ℕ)
   require x > 8
-  ensures res * res ≤ x ∧ ∀ i, i ≤ res → i * i ≤ x
+  ensures res * res ≤ x
+  ensures ∀ i, i ≤ res → i * i ≤ x
+  ensures ∀ i, i * i ≤ x → i ≤ res
   do
     if x = 0 then
       return 0
