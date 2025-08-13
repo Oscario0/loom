@@ -58,16 +58,6 @@ variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Typ
 set_option linter.unusedVariables false in
 def invariantGadget {invType : Type u} (inv : List invType) [CompleteLattice invType] [MAlgOrdered m invType] : m PUnit := pure .unit
 
-declare_syntax_cat doneWith
-declare_syntax_cat decreasingTerm
-declare_syntax_cat invariantClause
-declare_syntax_cat invariants
-syntax "invariant" termBeforeDo linebreak : invariantClause
-syntax "done_with" termBeforeDo : doneWith
-syntax "decreasing" termBeforeDo : decreasingTerm
-
-syntax (invariantClause linebreak)* : invariants
-
 @[simp]
 abbrev invariants (f : List l) := f.foldr (·⊓·) ⊤
 
@@ -81,12 +71,9 @@ def onDoneGadget {invType : Type u} (inv : invType) [CompleteLattice invType] [M
 set_option linter.unusedVariables false in
 def assertGadget {l : Type u} (h : l) [CompleteLattice l] [MAlgOrdered m l] : m PUnit := pure .unit
 
-macro "assert" t:term : term => `(assertGadget $t)
 
 set_option linter.unusedVariables false in
 def decreasingGadget (measure : ℕ) : m PUnit := pure .unit
-
-macro "decreasing" t:term : term => `(decreasingGadget $t)
 
 elab "with_name_prefix" lit:name inv:term : term => do
   let ⟨maxId, _, _⟩ <- loomAssertionsMap.get
@@ -117,93 +104,6 @@ attribute [run_builtin_parser_attribute_hooks] termBeforeInvariant
 
 builtin_initialize
   register_parser_alias termBeforeInvariant
-
-syntax "let" term ":|" term : doElem
-syntax "while" term
-  (invariantClause)*
-  (doneWith)?
-  (decreasingTerm)?
-  "do" doSeq : doElem
-syntax "while_some" term ":|" termBeforeDo "do" doSeq : doElem
-syntax "while_some" term ":|" term
-  (invariantClause)*
-  doneWith
-  "do" doSeq : doElem
-syntax "for" ident "in" termBeforeInvariant
-  (invariantClause)+
-  "do" doSeq : doElem
-
-macro_rules
-  | `(doElem| while $t
-              $[invariant $inv:term
-              ]*
-              $[done_with $inv_done]?
-              $[decreasing $measure]?
-              do $seq:doSeq) => do
-      let invd_some ← match inv_done with
-      | some invd_some => withRef invd_some ``($invd_some)
-      | none => ``(¬$t:term)
-      match measure with
-      | some measure_some => `(doElem|
-        for _ in Lean.Loop.mk do
-          invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
-          onDoneGadget (with_name_prefix `done $invd_some:term)
-          decreasingGadget (type_with_name_prefix `decreasing $measure_some:term)
-          if $t then
-            $seq:doSeq
-          else break)
-      | none => `(doElem|
-        for _ in Lean.Loop.mk do
-          invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
-          onDoneGadget (with_name_prefix `done $invd_some:term)
-          if $t then
-            $seq:doSeq
-          else break)
-  | `(doElem| while_some $x:ident :| $t do $seq:doSeq) =>
-    match seq with
-    | `(doSeq| $[$seq:doElem]*)
-    | `(doSeq| $[$seq:doElem;]*)
-    | `(doSeq| { $[$seq:doElem]* }) =>
-      `(doElem|
-        while ∃ $x:ident, $t do
-          let $x :| $t
-          $[$seq:doElem]*)
-    | _ => Lean.Macro.throwError "while_some expects a sequence of do-elements"
-  | `(doElem| while_some $x:ident :| $t
-              $[invariant $inv:term
-              ]*
-              done_with $inv_done do
-                $seq:doSeq) =>
-    match seq with
-    | `(doSeq| $[$seq:doElem]*)
-    | `(doSeq| $[$seq:doElem;]*)
-    | `(doSeq| { $[$seq:doElem]* }) =>
-      `(doElem|
-        for _ in Lean.Loop.mk do
-          invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
-          onDoneGadget (with_name_prefix `done $inv_done:term)
-          if ∃ $x:ident, $t then
-            let $x :| $t
-            $[$seq:doElem]*
-          else break)
-    | _ => Lean.Macro.throwError "while_some expects a sequence of do-elements"
-  | `(doElem| for $x:ident in $t
-            invariant $inv':term
-            $[invariant $inv:term
-            ]*
-            do $seq:doSeq) =>
-      match seq with
-      | `(doSeq| $[$seq:doElem]*)
-      | `(doSeq| $[$seq:doElem;]*)
-      | `(doSeq| { $[$seq:doElem]* }) =>
-        -- let inv := invs.push inv
-        `(doElem|
-          for $x:ident in $t do
-            invariantGadget [ $inv':term, $[$inv:term],* ]
-            $[$seq:doElem]*)
-      | _ => Lean.Macro.throwError "for expects a sequence of do-elements"
-
-
 
 structure WPGen (x : m α) where
   get : Cont l α

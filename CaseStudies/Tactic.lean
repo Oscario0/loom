@@ -9,6 +9,7 @@ import Loom.MonadAlgebras.WP.Gen
 import Loom.Tactic
 
 import CaseStudies.Extension
+import CaseStudies.Macro
 
 import ProofWidgets.Component.Panel.Basic
 import ProofWidgets.Component.HtmlDisplay
