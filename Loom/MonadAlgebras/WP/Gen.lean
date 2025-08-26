@@ -278,3 +278,43 @@ def WPGen.let  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Co
   prop := by
      intro post; simp; refine iInf_le_of_le y ?_
      simp; apply (wpgx y).prop
+
+
+/- 
+What is a match expression
+- a recursor basically
+-/
+
+noncomputable
+def WPGen.match
+  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
+  -- The program to run if the option is 'none'
+  {y : m β} (wpgy : WPGen y)
+  -- A function that gives a program to run if the option is 'some a'
+  {z : α → m β} (wpgz : ∀ a, WPGen (z a))
+  -- The option value we are matching on
+  (opt : Option α)
+  -- The return type is parameterized by the whole match expression
+  : WPGen (match opt with | none => y | some a => z a)
+where
+  get := fun post =>
+    -- Branch 1: The 'none' case
+    (⌜opt = none⌝ ⇨ wpgy.get post) ⊓
+    -- Branch 2: The 'some' case
+    (⨅ a, ⌜opt = some a⌝ ⇨ (wpgz a).get post)
+
+  prop := by
+    intro post; simp [LE.pure]
+    -- The proof strategy is to analyze the value of 'opt'
+    cases opt with
+    | none =>
+      -- If opt is none, the formula simplifies to the precondition for y
+      simp [wpgy.prop]
+    | some a =>
+      -- If opt is some a, the formula simplifies to the precondition for z a
+      simp [(wpgz a).prop]
+      refine iInf_le_of_le ?_ ?_ 
+      · assumption
+      · simp
+        exact (wpgz a).prop post
+
