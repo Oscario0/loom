@@ -137,7 +137,7 @@ def constructWPGen (matcherName : Name) : TermElabM (Option (Array Name × Expr)
   -- TODO repeating code
   withLocalDecls (← subWPGenArgs.toArray.mapM fun (nm, t) => do
       let nm' ← mkFreshUserName nm
-      pure (nm', BinderInfo.implicit, fun _ => pure t)) fun subWPGenArgsFVars => do
+      pure (nm', BinderInfo.default, fun _ => pure t)) fun subWPGenArgsFVars => do
 
   -- make up the type of the target `WPGen`
   let targetMatcher ← do
@@ -157,12 +157,12 @@ def constructWPGen (matcherName : Name) : TermElabM (Option (Array Name × Expr)
   trace[Loom.debug] "targetWPGenTy: {targetWPGenTy}"
 
   -- prepare the splitter
-  let (splitter, splitterType) ← do
+  let (matchEqnNames, splitter, splitterType) ← do
     let matchEqns ← Match.getEquationsFor matcherName
     -- note the difference on instantiating level params
     let splitter ← mkConstWithFreshMVarLevels matchEqns.splitterName
     let splitterType ← whnfForall (← inferType <| Lean.mkConst matchEqns.splitterName lvlMVars)
-    pure (splitter, splitterType)
+    pure (matchEqns.eqnNames, splitter, splitterType)
   trace[Loom.debug] "splitter type: {splitterType}"
 
   -- make up the `post`
@@ -285,7 +285,21 @@ def constructWPGen (matcherName : Name) : TermElabM (Option (Array Name × Expr)
           -- pure goal'
           let goals ← mainGoal.mvarId!.applyConst ``Loom.Matcher.simp2
           pure <| .mvar goals[0]!
-        let _ ← isDefEq subWPGenProp goal''
+
+        -- might need to use the matcher eqn
+        let goal''' ←
+          try
+            let r ← goal''.mvarId!.rewrite (← goal''.mvarId!.getType) (← mkConstWithFreshMVarLevels matchEqnNames[i]!)
+            let goal''' ← Expr.mvar <$> goal''.mvarId!.replaceTargetEq r.eNew r.eqProof
+            for g in r.mvarIds do
+              g.assumption
+            pure goal'''
+          catch _ => pure goal''
+        -- TODO why `isDefEq` does not work here?
+        let _ ← goal'''.mvarId!.apply subWPGenProp
+        -- trace[Loom.debug] "subWPGenProp: {subWPGenProp}"
+        -- let goal''' ← instantiateMVars goal'''
+        -- trace[Loom.debug] "goal after tactic: {goal'''}"
 
 /-
         -- try `rfl` in the trailing part

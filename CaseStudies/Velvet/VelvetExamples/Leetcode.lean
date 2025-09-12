@@ -120,13 +120,17 @@ method cube2 (n : β) (l : List α) return (res : Nat)
 -- set_option trace.Loom.debug true in
 prove_correct cube2 by
   unfold cube2
-  loom_solve <;> aesop
+  -- loom_solve
   -- TODO need to be fixed
 
 
-  -- repeat' loom_intro
+  repeat' loom_intro
   -- -- simp
-  -- wpgen
+  wpgen_intro
+  repeat' wpgen_step
+  wpgen_step
+
+  -- wpgen_step
   -- -- wpgen_app
   -- apply cube2.match_1.WPGen
   -- all_goals try simp only [loomWpSimp]
@@ -156,17 +160,31 @@ prove_correct cube2 by
 
 set_option trace.Loom.debug true in
 method cube3 (a : Nat) (b : Nat) (c : Nat) return (res : Nat)
-  ensures True
+  ensures res > 9
   do
     -- match a, b, c with
     -- | .zero, .zero, .some (.succ .zero) => pure (100 : Nat)
     -- | .zero, .zero, .none => pure (100 : Nat)
     -- | _, _, _ => pure 200
     match a, b, c with
-    | 2, 3, 4 => pure (100 : Nat)
-    | _, _, _ => pure 200
+    | 2, 3, 4 => pure (10 : Nat)
+    | _, _, _ => pure (a + b + c + 10)
+set_option trace.Loom.debug true in
+prove_correct cube3 by
+  unfold cube3
+  loom_solve
+  -- repeat' loom_intro
+  -- wpgen
+  -- rename_i a b c d e f ; apply WPGen.prop
+  -- wpgen_intro
+  -- wpgen_step
+  -- on_goal 3=> rewrite [cube3.match_1.eq_2]
+  -- loom_solve
+
+
 
 #check cube3.match_1
+#check cube3.match_1.eq_2
 #check cube3.match_1.splitter
 
 #check cube2.match_1.WPGen
@@ -214,8 +232,9 @@ run_meta do
 set_option trace.Loom.debug true in
 prove_correct cube by
   unfold cube
-  repeat' loom_intro
-  wpgen
+  -- repeat' loom_intro
+  -- wpgen
+  loom_solve
 
 
 set_option trace.Loom.debug true in
