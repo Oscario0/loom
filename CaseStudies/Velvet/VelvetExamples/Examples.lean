@@ -112,7 +112,6 @@ run_elab do
 set_option maxHeartbeats 1000000
 
 prove_correct insertionSort by
-  dsimp [insertionSort]
   loom_solve
 
 end insertionSort
@@ -136,8 +135,8 @@ method sqrt (x: ℕ) return (res: ℕ)
       do
         i := i + 1
       return i - 1
+
 prove_correct sqrt by
-  dsimp [sqrt]
   loom_solve!
 
 end squareRoot

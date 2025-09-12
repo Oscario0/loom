@@ -32,7 +32,7 @@ class TArray (α : outParam Type) (κ: Type) where
 
 
 def Array.get_set_c [Inhabited α] (i j: Nat) (val: α) (arr: Array α):
-  i < arr.size → (arr.setIfInBounds j val)[i]! = if i = j then val else arr[i]! := by
+  i < arr.size → (arr.set! j val)[i]! = if i = j then val else arr[i]! := by
     intro h
     by_cases h' : j < arr.size
     { simp [Array.setIfInBounds, dif_pos h']
@@ -43,7 +43,7 @@ def Array.get_set_c [Inhabited α] (i j: Nat) (val: α) (arr: Array α):
     omega
 
 def Array.size_set_c [Inhabited α] (i: Nat) (val: α) (arr: Array α):
-  (arr.setIfInBounds i val).size = arr.size := by simp
+  (arr.set! i val).size = arr.size := by simp
 
 def Array.multiset_swap [Inhabited α]
 (arr: Array α) (idx₁ idx₂: Nat) (h_idx₁: idx₁ < arr.size) (h_idx₂: idx₂ < arr.size) :

@@ -312,7 +312,9 @@ elab_rules : command
     let pre := obligation.pre
     let post := obligation.post
     let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
-    let proof <- withRef tkp ``(by $proof)
+    let proofSeq ← `(tacticSeq|
+      unfold $name
+      ($proof))
     let balanceOld := mkIdent `balanceOld
     let bal := mkIdent `balance
     let thmCmd <- withRef tkp `(command| lemma $lemmaName $bindersIdents* :
@@ -320,7 +322,7 @@ elab_rules : command
       triple
         (fun $(bal):ident : Bal => ($bal:ident = $(balanceOld)) ∧ $pre)
         ($name $ids*)
-        (fun $retId => fun $ret : Bal => $post) := $proof)
+        (fun $retId => fun $ret : Bal => $post) := by $proofSeq)
     Command.elabCommand thmCmd
     velvetObligations.modify (·.erase name.getId)
 

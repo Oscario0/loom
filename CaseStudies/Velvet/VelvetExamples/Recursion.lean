@@ -40,7 +40,6 @@ method pickGreater (inp: Nat) return (res: Nat)
     return ans
 
 prove_correct pickGreater by
-  unfold pickGreater
   loom_solve
 
 method pickGreaterN (n: Nat) return (res: Nat)
@@ -54,7 +53,6 @@ method pickGreaterN (n: Nat) return (res: Nat)
       return pre_res_big
 
 prove_correct pickGreaterN by
-  unfold pickGreaterN
   loom_solve
 
 def fact (n: Nat): Nat :=
@@ -83,7 +81,6 @@ method calc_fact (n: Nat) return (res: Nat)
       return ans
 
 prove_correct calc_fact by
-  unfold calc_fact
   loom_solve
   unfold fact at *
   aesop
@@ -91,6 +88,84 @@ prove_correct calc_fact by
   aesop
   have : n = i := by omega
   simp [this]
+
+method SimpleOption (x: Option Nat) return (res: Nat)
+  ensures res > 0
+  do
+    let rs ← match x with
+    | some re =>
+      let s := re + 2
+      pure s
+    | none =>
+      pure 1
+    return rs
+
+prove_correct SimpleOption by
+  cases x <;> loom_solve
+
+method SimpleList (li: List Nat) return (res: Nat)
+  ensures res > 0
+  do
+    let rs ← match li with
+      | x :: xs =>
+        let prev ← SimpleList xs
+        pure (prev.1 + x)
+      | [] =>
+        pure 1
+    return rs
+
+prove_correct SimpleList by
+  cases li <;> loom_solve
+
+@[reducible]
+def contains (tree: mt1 β) (elem: β) :=
+  match tree with
+  | .Leaf res => res = elem
+  | .Empty => False
+  | .Node l r res => res = elem ∨ contains l elem ∨ contains r elem
+
+@[reducible]
+def ordered_tree [LT β] (tree: mt1 β) :=
+  match tree with
+  | .Leaf _ => True
+  | .Empty => True
+  | .Node l r elem => ordered_tree l ∧ ordered_tree r ∧
+    (∀ x, contains l x → x < elem) ∧
+    (∀ x, contains r x → x > elem)
+
+set_option maxHeartbeats 2000000
+
+method insertTree (tree: mt1 Nat) (elem: Nat) return (res: mt1 Nat)
+  require ordered_tree tree
+  ensures contains res elem
+  ensures ordered_tree res
+  ensures ∀ x, (x = elem ∨ contains tree x) ↔ contains res x
+  do
+    let rs ← match tree with
+      | .Node l r el =>
+        if el = elem then
+          pure tree
+        else
+          if el < elem then
+            let right_res ← insertTree r elem
+            pure (.Node l right_res.1 el)
+          else
+            let left_res ← insertTree l elem
+            pure (.Node left_res.1 r el)
+      | .Leaf el =>
+        if el = elem then
+          pure tree
+        else
+          if el < elem then
+            pure (.Node (.Leaf el) (.Empty) elem)
+          else
+            pure (.Node (.Empty) (.Leaf el) elem)
+      | .Empty =>
+        pure (.Leaf elem)
+    return rs
+
+prove_correct insertTree by
+  cases tree <;> loom_solve
 
 /-method complex_measure_binsearch (l : Nat) (r: Nat) (x: Nat) return (res: Nat)
   require l * l ≤ x
@@ -127,12 +202,9 @@ method pow2 (n: Nat) return (res: Nat)
           i := i + 1
       return ans
 
-set_option maxHeartbeats 2000000
-
 lemma po2zer: 2 ^ 0 = 1 := by rfl
 
 attribute [solverHint] Nat.two_pow_succ po2zer
 
 prove_correct pow2 by
-  unfold pow2
   loom_solve

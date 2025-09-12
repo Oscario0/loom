@@ -61,7 +61,6 @@ method insertionSort_part
       return
 open PartialCorrectness DemonicChoice in
 prove_correct insertionSort_part by
-  dsimp [insertionSort_part]
   loom_solve!
 
 --we prove termination in total correctness
@@ -94,7 +93,6 @@ method insertionSort_termination
       return
 open TotalCorrectness DemonicChoice in
 prove_correct insertionSort_termination by
-  dsimp [insertionSort_termination]
   loom_solve!
 
 --we prove the postcondition just by combination of the two triples above

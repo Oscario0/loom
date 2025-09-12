@@ -55,5 +55,4 @@ theorem balance_lt (x: Bal) : x < x + 1 := by linarith
 
 
 prove_correct withdrawSessionAngelic by
-  dsimp [withdrawSessionAngelic]
   loom_solve!

@@ -524,3 +524,178 @@ elab "#derive_wp" args:explicitBinders ? "for" "(" name:term ":" type:term ")" :
     rfl)
   trace[Loom] m!"{thmCmd}"
   elabCommand thmCmd
+
+@[loomSpec, loomWpSimp, reducible]
+noncomputable
+def WPGen.recOption {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
+   {x : m β} {y : α → m β} {val: Option α}
+  (wpgx : WPGen x) (wpgy : ∀ a, WPGen (y a)) :
+  WPGen (Option.recOn val x y : m β) where
+  get := fun post =>
+    (wpgx.get post) ⊓ (⨅ a, (wpgy a).get post)
+  prop := by
+    intro post; simp
+    cases val
+    { simp
+      apply le_trans
+      apply inf_le_left
+      apply le_trans'
+      apply (wpgx).prop
+
+      rfl }
+    simp
+    rename_i a
+    apply le_trans
+    apply inf_le_right
+    apply le_trans'
+    apply (wpgy a).prop
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 a
+
+    rfl
+
+variable [CompleteBooleanAlgebra l]
+
+noncomputable
+def WPGen.recList {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
+   {nl : m β} {tl : α → List α → m β → m β} {ls: List α}
+  (wpgn : WPGen nl) (wpgt : ∀ (y: α) (li: List α) (mb: m β), WPGen (tl y li mb)) :
+  WPGen (List.recOn ls nl tl : m β) where
+  get := fun post =>
+    (wpgn.get post) ⊓
+    (⨅ y , ⨅ li, ⨅ mb, (wpgt y li mb).get post)
+  prop := by
+    intro post; simp
+    cases ls
+    { simp
+      apply le_trans
+      apply inf_le_left
+      solve_by_elim [wpgn.prop] }
+    rename_i head tail
+    apply le_trans
+    apply inf_le_right
+    apply le_trans'
+
+    apply (wpgt head tail (List.rec nl tl tail)).prop
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 head
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 tail
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 (List.rec nl tl tail)
+    rfl
+
+inductive mt1: Type u → Type u where
+| Leaf : {β : Type u} → β → mt1 β
+| Empty : {β : Type u} → mt1 β
+| Node: {β : Type u} → mt1 β → mt1 β → β → mt1 β
+
+noncomputable
+def WPGen.recMT1 {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
+  {ls: mt1 γ}
+  {ll : γ → m β}
+  {el : m β}
+  {nl : mt1 γ → mt1 γ → γ → m β → m β → m β}
+  (wpgl : ∀ (a: γ), WPGen (ll a))
+  (wpge : WPGen el)
+  (wpgn : ∀ (l r: mt1 γ) (a: γ) (ml mr: m β), WPGen (nl l r a ml mr)):
+  WPGen (mt1.recOn ls ll el nl : m β) where
+  get := fun post =>
+    (⨅ a, (wpgl a).get post) ⊓
+    (wpge.get post) ⊓
+    (⨅ l, ⨅ r, ⨅ a, ⨅ ml, ⨅ mr, (wpgn l r a ml mr).get post)
+  prop := by
+    intro post; simp
+    cases ls
+    { simp
+      rename_i a
+      apply le_trans
+      apply inf_le_left
+      apply le_trans
+      apply inf_le_left
+      apply le_trans'
+      apply (wpgl a).prop
+      apply iInf_le_iff.mpr
+      intro b1 h1
+      apply le_trans
+      apply h1 (by solve_by_elim)
+      rfl }
+    { simp
+      apply le_trans
+      apply inf_le_left
+      apply le_trans
+      apply inf_le_right
+      apply (wpge).prop }
+    simp
+    rename_i l r a
+    apply le_trans
+    apply inf_le_right
+    apply le_trans'
+
+    apply (wpgn l r a (mt1.rec ll el nl l) (mt1.rec ll el nl r)).prop
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 l
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 r
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 (by solve_by_elim)
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 (mt1.rec ll el nl l)
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 (mt1.rec ll el nl r)
+
+    rfl
+
+noncomputable
+def WPGen.recProd {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
+  {pr: Prod α₁ α₂}
+  {mkp : α₁ → α₂ → m β}
+  (wpgf : ∀ (a: α₁) (b: α₂), WPGen (mkp a b)):
+  WPGen (Prod.recOn pr mkp : m β) where
+  get := fun post =>
+    (⨅ a, ⨅ b, (wpgf a b).get post)
+  prop := by
+    intro post; simp
+    cases pr
+    simp
+    rename_i fst snd
+    apply le_trans'
+    apply (wpgf fst snd).prop
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 fst
+
+    apply iInf_le_iff.mpr
+    intro b1 h1
+    apply le_trans
+    apply h1 snd
+    rfl

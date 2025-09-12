@@ -116,7 +116,6 @@ method VSpV
     return
 
 prove_correct VSpV by
-  dsimp [VSpV]
   loom_solve
 
 --CSR matrix by a vector multiplication
@@ -145,7 +144,6 @@ method spmv
     return
 
 prove_correct spmv by
-  dsimp [spmv]
   loom_solve
 
 --helper function for calculation of dot product on sparse vectors
@@ -295,12 +293,10 @@ theorem spv_dot_exh
 --proofs for sparse vector by sparse vector multiplication
 --and sparse matrix by sparse vector multiplication algorithms
 prove_correct SpVSpV by
-  dsimp [SpVSpV]
   loom_solve
 
 
 prove_correct SpMSpV by
-  dsimp [SpMSpV]
   loom_solve
 
 --now we will prove that presented algorithms indeed calculate
