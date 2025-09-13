@@ -164,10 +164,40 @@ For example, we just obtained three monadic computations:
 `(mh_1 : m α)` (we optimize the `Unit` away),
 `(mh_2 : (b' c' : ℕ) → m α)`,
 `(mh_3 : (x x_1 x_2 : ℕ) → m α)`.
-The corresponding `WPGen` subgoals are:
+Intuitively, the corresponding `WPGen` subgoals should be:
 `(wpgh_1 : WPGen mh_1)`,
 `(wpgh_2 : ∀ b' c', WPGen (mh_2 b' c'))`,
 `(wpgh_3 : ∀ x x_1 x_2, WPGen (mh_3 x x_1 x_2))`.
+However, these subgoals might contain recursive calls to the `WPGen` using
+the theorem that we are proving. To allow this, the `WPGen` subgoals should
+contain some information that relates its arguments to the discriminants,
+in the form of equalities. For example, the type of `wpgh_2`, after adding
+the equalities, is
+`(wpgh_2 : ∀ b' c', a = 9 → b = b'.succ → c = c'.succ → WPGen (mh_2 b' c'))`.
+If `mh_2` contains a recursive call, then from the equalities we know that
+`b'` and `c'` are smaller than `b` and `c`, respectively, so the recursion
+is well-founded. It is important that the subgoals **depend on the discriminants**;
+if they are made more general, like
+`(wpgh_2 : ∀ a b c b' c', a = 9 → b = b'.succ → c = c'.succ → WPGen (mh_2 b' c'))`,
+then there is no way to track the size change of `b` and `c` in a recursive call.
+
+The type of `wpgh_1`, after adding the equalities, is
+`(wpgh_1 : a = 2 → b = 3 → c = 4 → WPGen mh_1)`.
+
+Note that the equalities are generated based on how `motive ...` looks
+like in each alternative. For example, in the first alternative,
+`motive 2 3 4`, the arguments `2`, `3`, and `4` correspond to the
+discriminants `a`, `b`, and `c`, respectively, so we have the equalities
+`a = 2`, `b = 3`, and `c = 4`. The same applies to the other alternatives.
+
+An optimization is to remove redundant equalities. In particular,
+if in `motive ...` an argument is a variable, then we do not need to
+have an equality between that variable and the corresponding discriminant;
+instead, we can just use the discriminant directly. For example, in the
+third alternative, `motive x x_1 x_2`, we do not need to have the equalities
+`a = x`, `b = x_1`, and `c = x_2`; instead, we can just use `a`, `b`, and `c` directly.
+
+TODO This optimization is not implemented yet.
 
 Finally, we can construct the body type of the `WPGen` we are constructing,
 by using the monadic computation arguments.
@@ -193,10 +223,11 @@ Each alternative of the splitter corresponds to one "branch" of the
 In one "branch", we have a series of heading `⨅ ...` (in analogy to `∀ ...`),
 and then a series of heading `⌜ ... ⌝ ⇨ ...` (in analogy to `... → ...`).
 The `⌜ ... ⌝`'s consist of the inner arguments of each alternative of the
-splitter and also equalities on the discriminant(s) of the matcher.
-The body of the branch is the `get` of the corresponding `WPGen` subgoal.
+splitter. The innermost `⨅ ...`'s are for the equalities on the discriminant(s)
+of the matcher; they need to be bound since they are the arguments of the
+corresponding `WPGen` subgoal, which is the body of the branch.
 - We implicitly assume that we can use a prefix of the arguments in an
-  alternative to fill in the arguments of the corresponding `WPGen` subgoal.
+  alternative to fill in some arguments of the corresponding `WPGen` subgoal.
 
 For example, the splitter of `test.match_1`, `test.match_1.splitter`,
 has three alternatives:
@@ -211,30 +242,17 @@ has three alternatives:
 The corresponding branches are:
 ```
 -- Branch 1:
-⌜a = 2⌝ ⇨ ⌜b = 3⌝ ⇨ ⌜c = 4⌝ ⇨ wpgh_1.get post
+⨅ (x : a = 2), ⨅ (x_1 : b = 3), ⨅ (x_2 : c = 4), (wpgh_1 x x_1 x_2).get post
 -- Branch 2:
-⨅ b', ⨅ c', ⌜a = 9⌝ ⇨ ⌜b = b'.succ⌝ ⇨ ⌜c = c'.succ⌝ ⇨ (wpgh_2 b' c').get post
+⨅ b', ⨅ c', ⨅ (x : a = 9), ⨅ (x_1 : b = b'.succ),
+  ⨅ (x_2 : c = c'.succ), (wpgh_2 b' c' x x_1 x_2).get post
 -- Branch 3:
 ⨅ x, ⨅ x_1, ⨅ x_2,
   ⌜x = 2 → x_1 = 3 → x_2 = 4 → False⌝ ⇨
     ⌜∀ (b' c' : ℕ), x = 9 → x_1 = b'.succ → x_2 = c'.succ → False⌝ ⇨
-      ⌜a = x⌝ ⇨ ⌜b = x_1⌝ ⇨ ⌜c = x_2⌝ ⇨ (wpgh_3 x x_1 x_2).get post
+      ⨅ (x_3 : a = x), ⨅ (x_4 : b = x_1), ⨅ (x_5 : c = x_2),
+        (wpgh_3 x x_1 x_2 x_3 x_4 x_5).get post
 ```
-Note that the equalities are generated based on how `motive ...` looks
-like in each alternative. For example, in the first alternative,
-`motive 2 3 4`, the arguments `2`, `3`, and `4` correspond to the
-discriminants `a`, `b`, and `c`, respectively, so we have the equalities
-`⌜a = 2⌝`, `⌜b = 3⌝`, and `⌜c = 4⌝`. The same applies to the other alternatives.
-
-An optimization is to remove redundant equalities. In particular,
-if in `motive ...` an argument is a variable, then we do not need to
-have an equality between that variable and the corresponding discriminant;
-instead, we can just use the discriminant directly. For example, in the
-third alternative, `motive x x_1 x_2`, we do not need to have the equalities
-`⌜a = x⌝`, `⌜b = x_1⌝`, and `⌜c = x_2⌝`; instead, we can just use `a`, `b`,
-and `c` directly.
-
-TODO This optimization is not implemented yet.
 
 The `WPGen.get` is then `fun post => ...` where `...` is the above branches
 connected by `⊓`.
@@ -249,15 +267,23 @@ straightforward. To do it at the `MetaM` level (instead of using `TacticM`),
 we build the proof term using the splitter as the skeleton. That is,
 the proof has the form of `fun post => test.match_1.splitter ...`.
 The `motive` here is in the form of
-`fun [discriminants'] => [get using discriminants'] post ≤ wp [matcher using discriminants'] post`
+```
+fun [discriminants'] =>
+  [discriminants = discriminants'] →
+  [get using discriminants] post ≤ wp [matcher using discriminants'] post
+```
 where `get` is the expression for `WPGen.get` we constructed in the
-previous step.
+previous step, and `matcher` is the one appearing in the body type of the `WPGen`
+we are constructing. `motive` is in this shape because as mentioned before,
+`get` depends on the discriminants, but we need to use the discriminant
+arguments inside `motive`, so we need to introduce the equalities first.
 
 For example, for `test.match_1`, the motive is
 ```
 fun a_ b_ c_ ↦
-  (⌜a_ = 2⌝ ⇨ ⌜b_ = 3⌝ ⇨ ⌜c_ = 4⌝ ⇨ wpgh_1.get post ⊓
-    /- ... -/) ≤
+  a = a_ → b = b_ → c = c_ →
+  (⨅ (x : a = 2), ⨅ (x_1 : b = 3), ⨅ (x_2 : c = 4), (wpgh_1 x x_1 x_2).get post ⊓
+    /- ... -/ ⊓ /- ... -/) ≤
   wp
     (match a_, b_, c_ with
     | 2, 3, 4 => mh_1
@@ -265,9 +291,8 @@ fun a_ b_ c_ ↦
     | x, x_1, x_2 => mh_3 x x_1 x_2)
     post
 ```
-where the matcher is the one appearing in the body type of the `WPGen` we
-are constructing, but note that its discriminants are substituted by
-the arguments of the motive `a_, b_, c_`. Similarly for the LHS of the `≤`.
+Note that on the LHS, we use the original copy of the discriminants `a, b, c`,
+while on the RHS, we use the arguments of the motive `a_, b_, c_`.
 
 Now each alternative of the splitter corresponds to one subgoal. For
 the `i`-th alternative, we use `inf_le_of_left_le` or
@@ -276,9 +301,10 @@ the `i`-th alternative, we use `inf_le_of_left_le` or
 For example, for the second alternative, the corresponding subgoal is
 ```
 ∀ (b' c' : ℕ),
+  a = 9 → b = b'.succ → c = c'.succ →
   /- ... -/ ⊓
-    (⨅ b'_1, ⨅ c'_1, ⌜9 = 9⌝ ⇨ ⌜b'.succ = b'_1.succ⌝ ⇨ ⌜c'.succ = c'_1.succ⌝ ⇨
-      (wpgh_2 b'_1 c'_1).get post) ⊓
+    (⨅ b', ⨅ c', ⨅ (x : a = 9), ⨅ (x_1 : b = b'.succ),
+        ⨅ (x_2 : c = c'.succ), (wpgh_2 b' c' x x_1 x_2).get post) ⊓
     /- ... -/  ≤
   wp
     (match 9, b'.succ, c'.succ with
@@ -288,11 +314,11 @@ For example, for the second alternative, the corresponding subgoal is
     post
 ```
 By doing something equivalent to
-`intro b' c' ; refine inf_le_of_left_le (inf_le_of_right_le ?_)`, the
-subgoal is reduced to
+`intro b' c' _ _ _ ; subst a ; subst b ; subst c ; refine inf_le_of_left_le (inf_le_of_right_le ?_)`,
+the subgoal is reduced to
 ```
-(⨅ b'_1, ⨅ c'_1, ⌜9 = 9⌝ ⇨ ⌜b'.succ = b'_1.succ⌝ ⇨ ⌜c'.succ = c'_1.succ⌝ ⇨
-      (wpgh_2 b'_1 c'_1).get post) ≤
+(⨅ b'_1, ⨅ c'_1, ⨅ (x : 9 = 9), ⨅ (x_1 : b'_1.succ = b'_1.succ),
+    ⨅ (x_2 : c'_1.succ = c'_1.succ), (wpgh_2 b'_1 c'_1 x x_1 x_2).get post) ≤
   wp
     (match 9, b'.succ, c'.succ with
     | 2, 3, 4 => mh_1
@@ -301,18 +327,16 @@ subgoal is reduced to
     post
 ```
 
-After that, we use the assumptions introduced by `intro` or `rfl`s
-to "discharge" the heading `⌜ ... ⌝`'s. We use `iInf_le_of_le` or
-`simp1` together with the assumptions, and use `simp2` with `rfl`s.
-Whether to use `simp2` depends on whether the assumptions introduced by
-`intro` are used up, since equalities are at the trailing positions.
+After that, we use the assumptions introduced by `intro` or `rfl`s to
+"discharge" the heading `⨅ _, ...`'s and `⌜ ... ⌝`'s. We use `iInf_le_of_le` or
+`simp1` together with the assumptions, and use `iInf_le_of_le` for `rfl`s.
 
 For example, for the subgoal above, we can do something equivalent to
-`refine iInf_le_of_le b' (iInf_le_of_le c' (simp2 (simp2 ?_)))`, where
-`iInf_le_of_le` is to choose the `b'` and `c'` in the `⨅ b'_1, ⨅ c'_1, ...`.
-Then the subgoal is reduced to
+`refine iInf_le_of_le b' (iInf_le_of_le c' (iInf_le_of_le rfl (iInf_le_of_le rfl (iInf_le_of_le rfl ?_))))`,
+where `iInf_le_of_le` is to choose the `b'` and `c'` in the `⨅ b'_1, ⨅ c'_1, ...`,
+and also for the three `⨅ ...`'s bound equalities. Then the subgoal is reduced to
 ```
-(wpgh_2 b' c').get post) ≤
+(wpgh_2 b' c' x x_1 x_2).get post ≤
   wp
     (match 9, b'.succ, c'.succ with
     | 2, 3, 4 => mh_1
