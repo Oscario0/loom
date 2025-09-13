@@ -41,6 +41,33 @@ elab "show_all_goals" : tactic => do
 
 macro "try_resolve_spec_goals" : tactic => `(tactic| try is_not_wpgen_goal; solve | rfl | solve_by_elim | simp)
 
+/-- An ad-hoc solution to passing the termination check, by deriving
+    conditions of the form `sizeOf x < sizeOf y` from equalities in the context.
+    These equalities can be introduced by, for example, subgoals of `WPGen`. -/
+elab "wpgen_generate_size_conditions" : tactic => do
+  withMainContext do
+  let goalType ← getMainTarget
+  let_expr WPGen _m _mInst _α _l _lInst _mPropInst x := goalType | throwError "{goalType} is not a WPGen"
+  let candidates ← x.getAppArgs'.filterM fun e => do
+    unless e.isFVar do return false
+    if Expr.isSort (← inferType e) then return false
+    pure true
+  for c in candidates do
+    let cIdent ← Lean.mkIdent <$> c.fvarId!.getUserName
+    let lctx ← getLCtx
+    for ldecl in lctx do
+      if ldecl.isImplementationDetail then continue
+      let ty ← instantiateMVars ldecl.type
+      let_expr Eq _ a b := ty | continue
+      unless a.isFVar || b.isFVar do continue
+      if a == c || b == c then continue
+      let larger := if c.occurs a then Option.some b else (if c.occurs b then some a else none)
+      let some larger := larger | continue
+      let .fvar larger := larger | continue
+      let largerIdent ← Lean.mkIdent <$> larger.getUserName
+      evalTactic (← `(tactic| have : sizeOf $cIdent:ident < sizeOf $largerIdent:ident := by
+        subst $largerIdent ; simp))
+
 def generateWPStep : TacticM (Bool × Expr) := withMainContext do
   let goalType <- getMainTarget
   let_expr WPGen _m _mInst _α _l _lInst _mPropInst x := goalType | throwError "{goalType} is not a WPGen"
@@ -85,6 +112,7 @@ def generateWPStep : TacticM (Bool × Expr) := withMainContext do
   let mainNameIdent := mkIdent mainName
   try
     evalTactic $ <- `(tactic|
+        wpgen_generate_size_conditions;
         eapply $(mkIdent ``WPGen.spec_triple);
         apply $mainNameIdent)
     return (true, x)
