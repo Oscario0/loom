@@ -20,9 +20,6 @@ namespace Loom.Matcher
 theorem simp1 {l : Type u} [CompleteBooleanAlgebra l] {p : Prop} (proof : p) {a b : l} (h : a ≤ b) :
   ⌜p⌝ ⇨ a ≤ b := by simp [proof] ; exact h
 
--- theorem simp2 {l : Type u} {α : Sort v} [CompleteBooleanAlgebra l] {a b : l} {c : α} (h : a ≤ b) :
---   ⨅ (x : c = c), a ≤ b := by simp ; exact h
-
 /-- Given `e` as the `Expr` of `∀ (x₁ : t₁) ⋯ (xₙ : tₙ), ⋯`, this returns
     `[(x₁, Expr(t₁), bi₁), ⋯, (xₙ, Expr(tₙ), biₙ)]`, where `biᵢ` is the `BinderInfo` of `xᵢ`. -/
 private def getForallPremises : Expr → List (Name × Expr × BinderInfo)
@@ -513,57 +510,42 @@ def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
       trace[Loom.debug] "subgoal {i}: {br}"
       -- `intro`
       let res ← forallTelescope br fun xs body => do
-        -- instantiate the sub `WPGen` to use
-        -- let subWPGen := subWPGenArgsFVars[i]!
-        -- let numArgsRequired := subMonadArgsInfo[i]!.1
-        -- let xsprefix := xs.take numArgsRequired
-        -- let rfls ← xsprefix.mapM (mkEqRefl ·)
-        -- let subWPGenProp ← mkAppM ``WPGen.prop #[mkAppN subWPGen (xsprefix ++ rfls), postExpr]
-        -- trace[Loom.debug] "subWPGenProp: {subWPGenProp}"
-
         -- using `forallTelescope` here to avoid prematurely unfolding `body`,
         -- since `body` would be `(fun (eqs) => ...) ...`
         -- unfold it now!
         let body ← whnf body
         forallTelescope body fun eqs body => do
 
-        -- build the proof by looking at the corresponding branch of `wpgenGet`
+        -- first substitute all `discrs`; code from `MVarId.substEqs`
         let goal ← mkFreshExprMVar body
         let goals ← goal.mvarId!.casesRec fun localDecl => do
           return eqs.contains <| Expr.fvar localDecl.fvarId
         let goal := .mvar goals[0]!
-
-        let goal_ ← withinBranch i numBranches lExpr goal
+        -- build the proof by looking at the corresponding branch of `wpgenGet`
+        let goal' ← withinBranch i numBranches lExpr goal
         -- do the prefix part
         let dependencies := backup[i]!.toArray
-        let goal' ← xs.zip dependencies |>.foldlM (init := goal_) fun mainGoal (x, dep) => do
-          let xty ← inferType x
-          if !dep then
+        let (_, goal'') ← dependencies.foldlM (init := (0, goal')) fun (i, mainGoal) dep => do
+          unless dep do
+            let x := xs[i]!
+            let xty ← inferType x
             let tmp ← mkAppOptM ``Loom.Matcher.simp1 #[.some lExpr, .none, .some xty, .some x]
             let goals ← mainGoal.mvarId!.apply tmp
-            pure <| .mvar goals[0]!
-          else
-            let f ← mkFreshExprMVar (← mkArrow xty lExpr)
-            let a ← mkFreshExprMVar lExpr
-            let tmp ← mkAppOptM ``iInf_le_of_le #[.some lExpr, .some xty, .none,
-              .some f /- hard to inference, so provided explicitly -/ ,
-              .some a, .some x]
-            let goals ← mainGoal.mvarId!.apply tmp
-            pure <| .mvar goals[0]!
-        -- try `rfl` in the trailing part
-        -- TODO code repetition
-        let goal'' ← (dependencies.size - xs.size) |>.foldM (init := goal') fun _ _ mainGoal => do
-          -- let goals ← mainGoal.mvarId!.applyConst ``Loom.Matcher.simp2
-          let aa ← mkFreshExprMVar none
-          let eq ← mkEq aa aa
-          let rfl ← mkEqRefl aa
-          let f ← mkFreshExprMVar (← mkArrow eq lExpr)
+            return (i.succ, .mvar goals[0]!)
+          let (x, xty) ← match xs[i]? with
+            | some x => pure (x, ← inferType x)
+            | none =>
+              let aa ← mkFreshExprMVar none
+              let eq ← mkEq aa aa
+              let rfl ← mkEqRefl aa
+              pure (rfl, eq)
+          let f ← mkFreshExprMVar (← mkArrow xty lExpr)
           let a ← mkFreshExprMVar lExpr
-          let tmp ← mkAppOptM ``iInf_le_of_le #[.some lExpr, .some eq, .none,
+          let tmp ← mkAppOptM ``iInf_le_of_le #[.some lExpr, .some xty, .none,
             .some f /- hard to inference, so provided explicitly -/ ,
-            .some a, .some rfl]
+            .some a, .some x]
           let goals ← mainGoal.mvarId!.apply tmp
-          pure <| .mvar goals[0]!
+          pure (i.succ, .mvar goals[0]!)
         -- might need to use the matcher eqn
         let goal''' ←
           try
@@ -573,7 +555,7 @@ def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
               g.assumption
             pure goal'''
           catch _ => pure goal''
-        -- let _ ← goal'''.mvarId!.apply subWPGenProp
+        -- we can also construct the `WPGen.prop`, but `applyConst` is easier
         let _ ← goal'''.mvarId!.applyConst ``WPGen.prop
         let res ← instantiateMVars goal
         mkLambdaFVars (xs ++ eqs) res
