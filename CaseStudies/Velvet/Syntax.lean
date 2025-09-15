@@ -66,9 +66,11 @@ syntax "ensures" termBeforeReqEnsDo : ensures_caluse
 
 syntax "method" ident leafny_binder* "return" "(" ident ":" term ")"
   (require_caluse )*
-  (ensures_caluse)* "do" doSeq : command
+  (ensures_caluse)* "do" doSeq
+  Termination.suffix : command
 
-syntax "prove_correct" ident "by" tacticSeq : command
+syntax "prove_correct" ident "by" tacticSeq
+  Termination.suffix : command
 
 syntax (priority := high) ident noWs "[" term "]" ":=" term : doElem
 syntax (priority := high) ident noWs "[" term "]" "+=" term : doElem
@@ -235,6 +237,7 @@ elab_rules : command
   method $name:ident $binders:leafny_binder* return ( $retId:ident : $type:term )
   $[require $req:term]*
   $[ensures $ens:term]* do $doSeq:doSeq
+  $suf:suffix
   ) => do
   let (defCmd, obligation, testingCtx) ← Command.runTermElabM fun _vs => do
     let bindersIdents ← toBracketedBinderArrayLeafny binders
@@ -256,7 +259,8 @@ elab_rules : command
       retType <- `(($modId:ident : $mutType) × $retType)
     let defCmd <- `(command|
       set_option linter.unusedVariables false in
-      def $name $bindersIdents* : VelvetM (($retId:ident : $type) × $retType) := do $mods* $doSeq*)
+      def $name $bindersIdents* : VelvetM (($retId:ident : $type) × $retType) := do $mods* $doSeq*
+      $suf:suffix)
     -- let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
 
     let reqName <- `(name| `require)
@@ -301,7 +305,7 @@ lemma triple_test (arr: arrInt) :
 
 @[incremental]
 elab_rules : command
-  | `(command| prove_correct $name:ident by%$tkp $proof:tacticSeq) => do
+  | `(command| prove_correct $name:ident by%$tkp $proof:tacticSeq $suf:suffix) => do
     let ctx <- velvetObligations.get
     let .some obligation := ctx[name.getId]? | throwError "no obligation found"
     let bindersIdents := obligation.binderIdents
@@ -322,6 +326,7 @@ elab_rules : command
         $pre
         ($name $ids*)
         (fun ⟨$retId, $ret⟩ => $post) := by $proofSeq)
+      $suf:suffix)
     Command.elabCommand thmCmd
     velvetObligations.modify (·.erase name.getId)
 
