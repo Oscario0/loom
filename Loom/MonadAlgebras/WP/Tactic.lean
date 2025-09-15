@@ -71,7 +71,6 @@ elab "wpgen_generate_size_conditions" : tactic => do
 def generateWPStep : TacticM (Bool × Expr) := withMainContext do
   let goalType <- getMainTarget
   let_expr WPGen _m _mInst _α _l _lInst _mPropInst x := goalType | throwError "{goalType} is not a WPGen"
-  let cs <- findSpec x
   if let some app ← matchMatcherApp? x then
     let name := app.matcherName
     if let some res ← Loom.Matcher.constructWPGen name then
@@ -85,6 +84,7 @@ def generateWPStep : TacticM (Bool × Expr) := withMainContext do
         let goals ← goal.apply tmp
         replaceMainGoal goals
       return (true, x)
+  let cs <- findSpec x
   for elem in cs do
     try
       match elem with
