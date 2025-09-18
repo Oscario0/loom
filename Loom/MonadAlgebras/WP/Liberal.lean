@@ -132,7 +132,7 @@ lemma wp_top_iwp (c : m α) (post : α -> l) :
   { simp; simp [<-le_himp_iff, himp_eq, <-wp_or]; rfl }
   simp; constructor
   { apply wp_cons; simp }
-  rw [@le_compl_iff_disjoint_left]; intro; intro _ _
+  rw [@le_compl_iff_disjoint_left]; intro _ _ _
   apply le_trans'; rewrite [<- wpb];
   rw [<-compl_inf_eq_bot (a := post)]
   erw [wp_and]; simp; solve_by_elim
