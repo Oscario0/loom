@@ -29,7 +29,6 @@ method simple_recursion (x : Nat) return (res: Nat)
       return pre_res + 1
 
 prove_correct simple_recursion by
-  unfold simple_recursion
   loom_solve
 
 
@@ -167,13 +166,13 @@ method insertTree (tree: mt1 Nat) (elem: Nat) return (res: mt1 Nat)
 prove_correct insertTree by
   cases tree <;> loom_solve
 
-/-method complex_measure_binsearch (l : Nat) (r: Nat) (x: Nat) return (res: Nat)
+method complex_measure_binsearch (l : Nat) (r: Nat) (x: Nat) return (res: Nat)
   require l * l ≤ x
   require x < r * r
   ensures res * res ≤ x
   ensures x ≤ (res + 1) * (res + 1)
   do
-    if l + 1 = r then
+    if l + 1 >= r then
       return l
     else
       let m := l + (r - l) / 2
@@ -182,7 +181,12 @@ prove_correct insertTree by
         return pre_res_l
       else
         let pre_res_r ← complex_measure_binsearch l m x
-        return pre_res_r-/
+        return pre_res_r
+
+prove_correct complex_measure_binsearch by
+  loom_solve
+  have eq: l < r := by loom_auto
+  grind
 
 method pow2 (n: Nat) return (res: Nat)
   ensures 2 ^ n = res
