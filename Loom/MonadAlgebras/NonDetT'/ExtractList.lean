@@ -92,25 +92,25 @@ abbrev VeilExecM (ε ρ σ α : Type u) :=
 -- to be applied to `α`
 abbrev VeilMultiExecM_ κ ε ρ σ α := ρ → σ → List (List κ × DivM (Except ε (α × σ)))
 
-def NonDetT.extractGenList_VeilM {findable} {α : Type u}
-  (findOf : ∀ {τ : Type u} (p : τ → Prop), ExtCandidates findable κ p → Unit → List τ)
-  : (s : NonDetT (VeilExecM ε ρ σ) α) → (ex : ExtractNonDet (ExtCandidates findable κ) s := by solve_by_elim) →
-  VeilMultiExecM_ κ ε ρ σ α
-  | .pure x, _ => fun _ s => [([], DivM.res (Except.ok (x, s)))]
-  | .vis x f, .vis _ _ _ =>
-    fun r s =>
-      match x r s with
-      | DivM.res (Except.ok (y, s')) =>
-        extractGenList_VeilM findOf (f y) (by rename_i a ; exact a y) r s'
-      -- the following two cannot be merged into one case, due to return type mismatch
-      | DivM.div => [([], DivM.div)]
-      | DivM.res (Except.error e) => [([], DivM.res (Except.error e))]
-  | .pickCont _ p f, .pickSuchThat _ _ _ _ =>
-    fun r s =>
-      findOf p ‹_› () |>.flatMap fun x =>
-        let tmp := extractGenList_VeilM findOf (f x) (by rename_i a ; exact a x) r s
-        let x := ExtCandidates.rep _ _ (self := ‹_›) x
-        tmp.map fun (ks, y) => (x :: ks, y)
+-- def NonDetT.extractGenList_VeilM {findable} {α : Type u}
+--   (findOf : ∀ {τ : Type u} (p : τ → Prop), ExtCandidates findable κ p → Unit → List τ)
+--   : (s : NonDetT (VeilExecM ε ρ σ) α) → (ex : ExtractNonDet (ExtCandidates findable κ) s := by solve_by_elim) →
+--   VeilMultiExecM_ κ ε ρ σ α
+--   | .pure x, _ => fun _ s => [([], DivM.res (Except.ok (x, s)))]
+--   | .vis x f, .vis _ _ _ =>
+--     fun r s =>
+--       match x r s with
+--       | DivM.res (Except.ok (y, s')) =>
+--         extractGenList_VeilM findOf (f y) (by rename_i a ; exact a y) r s'
+--       -- the following two cannot be merged into one case, due to return type mismatch
+--       | DivM.div => [([], DivM.div)]
+--       | DivM.res (Except.error e) => [([], DivM.res (Except.error e))]
+--   | .pickCont _ p f, .pickSuchThat _ _ _ _ =>
+--     fun r s =>
+--       findOf p ‹_› () |>.flatMap fun x =>
+--         let tmp := extractGenList_VeilM findOf (f x) (by rename_i a ; exact a x) r s
+--         let x := ExtCandidates.rep _ _ (self := ‹_›) x
+--         tmp.map fun (ks, y) => (x :: ks, y)
 
 -- to prove what?
 -- a state is a possible post state (w.r.t. two state transition) iff
@@ -1738,10 +1738,13 @@ def NonDetT.extractGenList {findable} {α : Type u} -- {κ}
       let x := ExtCandidates.rep findable p (self := ‹_›) x
       inst1.bind (inst4.log x) (fun _ => tmp))
     inst3.op res
-  -- | .pickCont _ p f, .assume _ _ _ =>
-  --   if p .unit
-  --   then extractGenList findOf (f .unit)
-  --   else Pure.pure []   -- dead end
+  | .pickCont _ p f, .assume _ _ _ =>
+    if p .unit
+    then
+      -- do not have to log anything
+      extractGenList findOf (f .unit) (by rename_i a ; exact a .unit)
+    else inst3.op []   -- dead end
+      -- NOTE: this might also be made related with `CCPO`, but not necessary
 
 def NonDetT.extractList {α : Type u} (s : NonDetT m α)
   (ex : ExtractNonDet (ExtCandidates Candidates κ) s) : m' α :=
@@ -1778,14 +1781,14 @@ theorem ExtractNonDet.extract_list_refines_wp
   (ex : ExtractNonDet (ExtCandidates findable κ) s) :
   wp (s.extractGenList m' findOf ex) post ≤ wp s post := by
   induction ex with
-  | pure x => simp [NonDetT.extractPartialList, wp_pure]
+  | pure x => simp [NonDetT.extractGenList, wp_pure]
   | vis x f g ih =>
-    simp [NonDetT.wp_vis, NonDetT.extractPartialList, wp_bind]
+    simp [NonDetT.wp_vis, NonDetT.extractGenList, wp_bind]
     have tmp := instl.go_sound _ x --post
     simp only [ge_iff_le] at tmp
     trans ; apply tmp ; apply wp_cons ; aesop (add norm inf_comm)
   | pickSuchThat τ p f cd ih =>
-    simp [NonDetT.wp_pickCont, NonDetT.extractPartialList]
+    simp [NonDetT.wp_pickCont, NonDetT.extractGenList]
     rename_i extcd
     -- have htmp := PartialCandidates.find_then (self := extcd.core)
     -- generalize (PartialCandidates.find p (self := extcd.core) ()) = lis at htmp ⊢
@@ -1797,6 +1800,13 @@ theorem ExtractNonDet.extract_list_refines_wp
     simp
     intro a hin ; trans ; apply ih
     apply le_iSup_of_le a ; simp [findOf_sound _ hin]
+  | assume p f cd ih =>
+    simp [NonDetT.wp_pickCont, NonDetT.extractGenList]
+    split_ifs with h
+    · apply le_iSup_of_le .unit ; simp [h] ; apply ih
+    · have tmp := @instl2.sound α [] post
+      simp [ge_iff_le] at tmp
+      rw [tmp] ; simp
 
 theorem ExtractNonDet.wp_refines_extract_list
   [instl : LawfulMonadFlatMapGo m m' l LE.le]
@@ -1825,6 +1835,9 @@ theorem ExtractNonDet.wp_refines_extract_list
     simp
     intro a hin ; trans ; apply ih
     apply le_iSup_of_le a ; simp [findOf_complete, hin]
+  | assume p f cd ih =>
+    simp [NonDetT.wp_pickCont, NonDetT.extractGenList]
+    rintro ⟨⟩ hp ; simp [hp] ; apply ih
 
 theorem ExtractNonDet.extract_list_eq_wp
   [instl : LawfulMonadFlatMapGo m m' l Eq]

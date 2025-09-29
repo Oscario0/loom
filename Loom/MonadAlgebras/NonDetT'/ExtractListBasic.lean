@@ -9,7 +9,7 @@ import Loom.MonadAlgebras.WP.Gen
 import Loom.MonadAlgebras.WP.Liberal
 import Loom.MonadAlgebras.NonDetT'.Basic
 
--- compared with `ExtractNonDet` in `NonDetT'`, just have the constructor for `assume` removed
+-- compared with `ExtractNonDet` in `NonDetT'`, just have the universe levels are tweaked a bit
 inductive ExtractNonDet (findable : {τ : Type u} -> (τ -> Prop) -> Type w) {m} : {α : Type u} -> NonDetT m α -> Type _ where
   | pure {α} : ∀ (x : α), ExtractNonDet findable (NonDetT.pure x)
   | vis {α} {β} (x : m β) (f : β → NonDetT m α) :
@@ -17,8 +17,8 @@ inductive ExtractNonDet (findable : {τ : Type u} -> (τ -> Prop) -> Type w) {m}
   | pickSuchThat {α} (τ : Type u) (p : τ -> Prop) (f : τ → NonDetT m α)
     {_ : findable p}
      : (∀ x, ExtractNonDet findable (f x)) → ExtractNonDet findable (.pickCont τ p f)
-  -- | assume {α} (p : PUnit -> Prop) (f : PUnit → NonDetT m α) {_ : Decidable (p .unit)} :
-  --   (∀ x, ExtractNonDet findable (f x)) → ExtractNonDet findable (.pickCont PUnit p f)
+  | assume {α} (p : PUnit -> Prop) (f : PUnit → NonDetT m α) {_ : Decidable (p .unit)} :
+    (∀ x, ExtractNonDet findable (f x)) → ExtractNonDet findable (.pickCont PUnit p f)
 
 set_option linter.unusedVariables false in
 def ExtractNonDet.bind {findable : {τ : Type u} -> (τ -> Prop) -> Type u} :
@@ -30,6 +30,10 @@ def ExtractNonDet.bind {findable : {τ : Type u} -> (τ -> Prop) -> Type u} :
     intro y; apply ExtractNonDet.bind <;> solve_by_elim
   | .pickSuchThat _ p f inst, inst' => by
     dsimp [Bind.bind, NonDetT.bind]; constructor
+    assumption; intro y; apply ExtractNonDet.bind <;> solve_by_elim
+  | .assume _ f inst, inst' => by
+    dsimp [Bind.bind, NonDetT.bind];
+    apply ExtractNonDet.assume
     assumption; intro y; apply ExtractNonDet.bind <;> solve_by_elim
 
 instance ExtractNonDet.pure' : ExtractNonDet findable (Pure.pure (f := NonDetT m) x) := by
@@ -109,6 +113,11 @@ instance ExtractNonDet.pickList {τ : Type u} (p : τ → Prop) [c p] :
   dsimp [MonadNonDet.pickSuchThat, NonDetT.pickSuchThat]; constructor
   assumption; intro y; apply ExtractNonDet.pure
 
+instance ExtractNonDet.assume' {p : Prop} [Decidable p] :
+  ExtractNonDet findable (MonadNonDet.assume (m := NonDetT m) p) := by
+  dsimp [MonadNonDet.assume, NonDetT.assume]; apply ExtractNonDet.assume; assumption
+  intro y; apply ExtractNonDet.pure
+
 macro "extract_step" : tactic =>
   `(tactic|
     first
@@ -116,6 +125,7 @@ macro "extract_step" : tactic =>
       | eapply ExtractNonDet.pure'
       | eapply ExtractNonDet.liftM
       | eapply ExtractNonDet.pickList
+      | eapply ExtractNonDet.assume'
       | split )
 
 macro "extract_tactic" : tactic =>
