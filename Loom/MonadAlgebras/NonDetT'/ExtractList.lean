@@ -323,16 +323,40 @@ instance
 class MonadPersistentLog (κ : Type w) (m : Type u → Type v) where
   log : κ → m PUnit
 
+-- using `MonadLiftT` reports error, so anyway
+instance
+  -- (κ : Type w) (m : Type u → Type v)
+  [inst : MonadPersistentLog κ m]
+  [lft : MonadLift m n] :
+  MonadPersistentLog κ n where
+  log := (lft.monadLift <| inst.log ·)
+
+-- no effect can be observed from the log action
 class LawfulMonadPersistentLog (κ : Type w) (m : Type u → Type v)
   [inst : MonadPersistentLog κ m]
   [Monad m]
-  [LawfulMonad m]
+  -- [LawfulMonad m]
   (l : Type u)
   [CompleteLattice l]
   [MAlgOrdered m l]
   where
-  log_sound : ∀ (k : κ) (f : PUnit → m α) (post : α → l),
-    wp (inst.log k >>= f) post = wp (f PUnit.unit) post
+  log_sound : ∀ (k : κ) (post : PUnit → l),
+    -- wp (inst.log k >>= f) post = wp (f PUnit.unit) post
+    wp (inst.log k) post = post PUnit.unit
+
+-- TODO we should be able to derive `LawfulMonadPersistentLog` systematically,
+-- through some kind of lawful lifts, but it seems not very easy to do so ...?
+-- #print
+-- instance
+--   [Monad m]
+--   [Monad n]
+--   [CompleteLattice l]
+--   [MAlgOrdered m l]
+--   [MAlgOrdered n l]
+--   [inst : MonadPersistentLog κ m]
+--   [lft : MonadLift m n]
+--   [insta : LawfulMonadPersistentLog κ m l]
+--   : LawfulMonadPersistentLog κ n l where
 
 section monads_with_persistency
 
@@ -927,8 +951,9 @@ instance --{m : Type u → Type v) (l : Type u)
     rw [iSup_comm (ι := m α)]
     conv => rhs ; rhs ; intro a ; rw [iSup_comm (ι := m α)]
 
--- instance : MonadLift m' (TsilT m') where
---   monadLift := fun x => [x]
+-- well ... to account for the logging construct
+instance : MonadLift m' (TsilT m') where
+  monadLift := fun x => [x]
 
 instance {m'} : MonadFlatMapGo m' (TsilT m') where
   go := fun x => [x]
@@ -1143,7 +1168,44 @@ theorem TsilT.PeDivM.wp_cons
   rcases x with ⟨k1, x | _⟩ <;> simp [PeDivM.prepend, pure]
 -/
 
--- TODO investigate how to systematically derive `LawfulMonadFlatMapGo` from `TsilTCore`
+scoped instance
+  [Monad m]
+  [LawfulMonad m]
+  [TsilTCore m]
+  [CompleteLattice l]
+  [inst : MAlgOrdered m l]
+  [LawfulTsilTCore m]
+  [LawfulTsilTCoreMAlgSup m l]
+   : LawfulMonadFlatMapGo m (TsilT m) l Eq where
+  go_sound := by
+    introv
+    simp [wp, liftM, monadLift, MAlg.lift, Functor.map, MAlgOrdered.μ, MonadFlatMapGo.go, pointwiseSup, TsilTCore.op]
+    unfold Function.comp ; simp [LawfulTsilTCore.op_single]
+
+#check LawfulMonadFlatMapGo
+-- TODO the proper way to do this is to have a transitivity for `LawfulMonadFlatMapGo`
+scoped instance
+  [Monad m]
+  [Monad m']
+  [LawfulMonad m']
+  [TsilTCore m']
+  [CompleteLattice l]
+  [inst : MAlgOrdered m l]
+  [inst : MAlgOrdered m' l]
+  [LawfulTsilTCore m']
+  [LawfulTsilTCoreMAlgSup m' l]
+  [MonadFlatMapGo m m']
+  {p : l → l → Prop}
+  [LawfulMonadFlatMapGo m m' l p]
+   : LawfulMonadFlatMapGo m (TsilT m') l p where
+  go_sound := by
+    introv
+    simp [wp, liftM, monadLift, MAlg.lift, Functor.map, MAlgOrdered.μ, MonadFlatMapGo.go, pointwiseSup, TsilTCore.op]
+    unfold Function.comp ; simp [LawfulTsilTCore.op_single]
+    apply LawfulMonadFlatMapGo.go_sound
+
+/-
+-- NOTE: this is replaced by the `TsilTCore` approach
 scoped instance
   [Monoid κ]
   [CompleteLattice l]
@@ -1153,6 +1215,7 @@ scoped instance
     intro α a post
     simp [wp, liftM, monadLift, MAlg.lift, Functor.map, MAlgOrdered.μ, MonadFlatMapGo.go, pointwiseSup, TsilTCore.op]
     rcases a with a | _ <;> simp [PeDivM.prepend, pure]
+-/
 
 /-
 -- NOTE: this is replaced by the `TsilTCore` approach
@@ -1434,7 +1497,7 @@ open AngelicChoice in
 open TotalCorrectness in
 #check fun (hd : ε → Prop) =>
   let _ : IsHandler hd := ⟨⟩
-  inferInstanceAs (MAlgOrdered (VeilMultiExecM_' κ ε ρ σ) (ρ → σ → Prop))
+  inferInstanceAs (MAlgOrdered (VeilMultiExecM_'' κ ε ρ σ) (ρ → σ → Prop))
 
 -- NOTE: this needs rewriting, unless given rewriting instance
 -- set_option synthInstance.maxHeartbeats 1000 in
@@ -1453,13 +1516,12 @@ open TotalCorrectness in
   let _ : IsHandler hd := ⟨⟩
   inferInstanceAs (LawfulMonad (VeilMultiExecM_' κ ε ρ σ))
 
--- NOTE: this needs rewriting, unless given rewriting instance
--- set_option trace.Meta.synthInstance.answer true in
--- open AngelicChoice in
--- open TotalCorrectness in
--- #check fun (hd : ε → Prop) =>
---   let _ : IsHandler hd := ⟨⟩
---   inferInstanceAs (LawfulMonad (VeilMultiExecM_' κ ε ρ σ))
+set_option trace.Meta.synthInstance.answer true in
+open AngelicChoice in
+open TotalCorrectness in
+#check fun (hd : ε → Prop) =>
+  let _ : IsHandler hd := ⟨⟩
+  inferInstanceAs (LawfulMonad (VeilMultiExecM_'' κ ε ρ σ))
 
 set_option trace.Meta.synthInstance.answer true in
 set_option trace.Meta.synthInstance.instances true in
@@ -1471,27 +1533,10 @@ open TotalCorrectness in
     -- (StateT σ (ExceptT ε DivM))
     (VeilExecM ε ρ σ)
     -- (StateT σ (ExceptT ε (TsilT (PeDivM (List κ)))))
-    (VeilMultiExecM_' κ ε ρ σ)
+    (VeilMultiExecM_'' κ ε ρ σ)
     -- (σ → Prop)
     (ρ → σ → Prop)
     (relLift <| relLift Eq))
-
--- NOTE: this needs rewriting, and rewriting instance might be hard to get
--- set_option trace.Meta.synthInstance.answer true in
--- set_option trace.Meta.synthInstance.instances true in
--- open AngelicChoice in
--- open TotalCorrectness in
--- #check fun (hd : ε → Prop) =>
---   let _ : IsHandler hd := ⟨⟩
---   inferInstanceAs (LawfulMonadFlatMapGo
---     (ExceptT ε DivM)
---     -- (VeilExecM ε ρ σ)
---     (TsilT (ExceptT ε (PeDivM (List κ))))
---     -- (VeilMultiExecM_'' κ ε ρ σ)
---     -- (σ → Prop)
---     -- (ρ → σ → Prop)
---     Prop
---     (Eq))
 
 -- NOTE: this is direct for `VeilMultiExecM_''` but not for `VeilMultiExecM_'`, see the reason above
 set_option trace.Meta.synthInstance.answer true in
@@ -1578,6 +1623,27 @@ open TotalCorrectness in
   --   Eq
   --   )
 
+set_option trace.Meta.synthInstance.answer true in
+set_option trace.Meta.synthInstance.instances true in
+#check inferInstanceAs (MonadPersistentLog (List κ) (VeilMultiExecM_'' κ ε ρ σ))
+
+-- well, this is ...
+open AngelicChoice in
+open TotalCorrectness in
+noncomputable
+instance
+  {hd : ε → Prop}
+  [IsHandler hd]
+  : LawfulMonadPersistentLog (List κ) (VeilMultiExecM_'' κ ε ρ σ) (ρ → σ → Prop) where
+  log_sound := by
+    introv
+    simp [wp, liftM, monadLift, MAlg.lift, Functor.map, MAlgOrdered.μ,
+      StateT.map, ExceptT.map, ExceptT.mk, TsilTCore.op, PeDivM.prepend_snd_same,
+      MonadPersistentLog.log, MonadLift.monadLift, StateT.lift, ExceptT.lift, PeDivM.log,
+      PeDivM.prepend, ExceptT.TsilTCore.go, pure, bind, ExceptT.pure]
+    ext a b
+    simp [pointwiseSup, OfHd, MAlgExcept, MAlgOrdered.μ, Functor.map, PeDivM.prepend, Except.getD]
+    simp [LE.pure]
 
 -- #check inferInstanceAs (MonadLiftT (VeilExecM ε ρ σ) (VeilMultiExecM_' κ ε ρ σ))
 -- TODO how to relate the original monad to the new one? `lift` might not be a very good approach
@@ -1705,7 +1771,7 @@ theorem ExtractNonDet.extract_list_refines_wp
     generalize (findOf p extcd ()) = lis at findOf_sound ⊢
     have tmp := @instl2.sound
     simp only [ge_iff_le] at tmp
-    trans ; apply tmp ; rw [iSup_list_map] ; simp only [LawfulMonadPersistentLog.log_sound]
+    trans ; apply tmp ; rw [iSup_list_map] ; simp only [wp_bind, LawfulMonadPersistentLog.log_sound]
     simp
     intro a hin ; trans ; apply ih
     apply le_iSup_of_le a ; simp [findOf_sound _ hin]
@@ -1733,7 +1799,7 @@ theorem ExtractNonDet.wp_refines_extract_list
     specialize findOf_complete p extcd
     generalize (findOf p extcd ()) = lis at findOf_complete ⊢
     have tmp := @instl2.sound
-    trans ; (on_goal 2=> apply tmp) ; rw [iSup_list_map] ; simp only [LawfulMonadPersistentLog.log_sound]
+    trans ; (on_goal 2=> apply tmp) ; rw [iSup_list_map] ; simp only [wp_bind, LawfulMonadPersistentLog.log_sound]
     simp
     intro a hin ; trans ; apply ih
     apply le_iSup_of_le a ; simp [findOf_complete, hin]
