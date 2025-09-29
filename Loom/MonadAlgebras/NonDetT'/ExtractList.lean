@@ -677,6 +677,15 @@ abbrev TsilT (m : Type u → Type v) (α : Type u) := List (m α)
 class TsilTCore (m : Type u → Type v) where
   op : ∀ {α β}, m α → (α → TsilT m β) → TsilT m β
 
+-- NOTE: this function should be essentially the same as `ExceptT.bindCont`,
+-- where the pure is the one of `TsilT m`, namely `fun x => [instm.pure x]`.
+-- does this observation help?
+
+-- this might indicate that the monad constructed using `TsilTCore`, and
+-- the one constructed by exploiting the fact that `ExceptT` and `TsilT`
+-- commute, are the same.
+-- TODO can we prove this?
+#print ExceptT.bindCont
 def ExceptT.TsilTCore.go {ε : Type u} {m : Type u → Type v}
   [inst : Pure m]
   {α β : Type u}
@@ -727,6 +736,31 @@ class LawfulTsilTCoreMAlgSup (m : Type u → Type v) (l : Type u)
 instance [Pure m] [TsilTCore m] : Monad (TsilT m) where
   pure := fun x => [pure x]
   bind := fun xs f => xs.flatMap fun mx => TsilTCore.op mx f
+
+instance
+  [Monad m]
+  [TsilTCore m]
+  [inst : LawfulTsilTCore m]
+  : LawfulTsilTCore (ExceptT ε m) where
+  op_single := by
+    introv
+    simp +unfoldPartialApp [TsilTCore.op, bind, ExceptT.bind, ExceptT.mk, ExceptT.TsilTCore.go]
+    have tmp := inst.op_single x (ExceptT.bindCont f)
+    simp [ExceptT.bindCont] at tmp
+    -- kind of awkward ...
+    rw [← tmp] ; congr! 1 ; ext a ; rcases a with e | a <;> simp
+  pure_op := by
+    introv
+    simp [TsilTCore.op, pure, ExceptT.pure, ExceptT.mk, LawfulTsilTCore.pure_op, ExceptT.TsilTCore.go]
+  op_assoc := by
+    introv
+    simp [TsilTCore.op, bind, ExceptT.bind, ExceptT.mk]
+    have tmp := inst.op_assoc x (ExceptT.TsilTCore.go f) (ExceptT.TsilTCore.go g)
+    trans ; apply tmp
+    congr! 1 ; funext a-- ; rcases a with e | a <;> simp [ExceptT.TsilTCore.go]
+    unfold ExceptT.TsilTCore.go ; dsimp
+    rcases a with e | a <;> simp [LawfulTsilTCore.pure_op]
+    rfl
 
 instance-- {m : Type u → Type v} {l ε : Type u}
   [monad_m : Monad m]
@@ -1153,20 +1187,20 @@ scoped instance
 end AngelicChoice
 
 -- HMM is there any other way to go, without using this equality? I don’t know
-instance (priority := 2000)
-  [inst : Monad (ExceptT ε (TsilT m))]
-  : Monad (TsilT (ExceptT ε m)) := inst
+-- instance (priority := 2000)
+--   [inst : Monad (ExceptT ε (TsilT m))]
+--   : Monad (TsilT (ExceptT ε m)) := inst
 
-instance (priority := 2000)
-  [inst : Monad (ExceptT ε (TsilT m))]
-  [inst2 : @LawfulMonad (ExceptT ε (TsilT m)) inst]
-  : LawfulMonad (TsilT (ExceptT ε m)) := inst2
+-- instance (priority := 2000)
+--   [inst : Monad (ExceptT ε (TsilT m))]
+--   [inst2 : @LawfulMonad (ExceptT ε (TsilT m)) inst]
+--   : LawfulMonad (TsilT (ExceptT ε m)) := inst2
 
-instance (priority := 2000)
-  [i1 : Monad (ExceptT ε (TsilT m))]
-  [i2 : CompleteLattice l]
-  [inst : @MAlgOrdered (ExceptT ε (TsilT m)) l i1 i2]
-    : MAlgOrdered (TsilT (ExceptT ε m)) l := inst
+-- instance (priority := 2000)
+--   [i1 : Monad (ExceptT ε (TsilT m))]
+--   [i2 : CompleteLattice l]
+--   [inst : @MAlgOrdered (ExceptT ε (TsilT m)) l i1 i2]
+--     : MAlgOrdered (TsilT (ExceptT ε m)) l := inst
 
 /-
 -- NOTE: this is replaced by the `TsilTCore` approach
@@ -1344,6 +1378,11 @@ instance : Monoid (List κ) where
 
 section what_do_we_want_again
 
+-- NOTE: there are some attempts to switch between `ExceptT ε (TsilT m)` and `TsilT (ExceptT ε m)`
+-- below; but due to the type dependence (e.g., `LawfulMonad` depends on `Monad`),
+-- this switch might be troublesome.
+-- so for now, let's first insist on one form, say `TsilT (ExceptT ε m)`.
+
 -- def VeilExecM (ε : Type w) (ρ σ α : Type u) :=
 --   -- ReaderT ρ (StateT σ (ExceptT ε DivM)) α
 --   ρ → σ → DivM (Except ε (α × σ))
@@ -1382,6 +1421,13 @@ open TotalCorrectness in
   let _ : IsHandler hd := ⟨⟩
   -- inferInstanceAs (LawfulMonadFlatMapGo (VeilExecM ε ρ σ) (VeilMultiExecM_' κ ε ρ σ) (ρ → σ → Prop) Eq)
   inferInstanceAs (MAlgOrdered (VeilExecM ε ρ σ) (ρ → σ → Prop))
+
+set_option trace.Meta.synthInstance.answer true in
+open AngelicChoice in
+open TotalCorrectness in
+#check fun (hd : ε → Prop) =>
+  let _ : IsHandler hd := ⟨⟩
+  inferInstanceAs (MAlgOrdered (VeilMultiExecM_' κ ε ρ σ) (ρ → σ → Prop))
 
 set_option trace.Meta.synthInstance.answer true in
 open AngelicChoice in
@@ -1452,46 +1498,71 @@ set_option trace.Meta.synthInstance.answer true in
 set_option trace.Meta.synthInstance.instances true in
 #check inferInstanceAs (MonadFlatMap' (VeilMultiExecM_'' κ ε ρ σ))
 
-instance : (MonadFlatMap' (VeilMultiExecM_' κ ε ρ σ)) := by
-  have tmp := inferInstanceAs (MonadFlatMap' (VeilMultiExecM_'' κ ε ρ σ))
-  exact tmp
+-- NOTE: some of these, together with the "switching instances" above,
+-- seems to introduce discrepancies in instance resolution (i.e., not canonical)
+-- CHECK this also seems to indicate that even for the same monad
+-- (`TsilT (ExceptT ...))` vs `ExceptT (TsilT ...)`),
+-- the instances might not be interchangeable!!!
 
-instance : (Monad (TsilT (ExceptT ε (PeDivM (List κ))))) := by
-  have tmp := inferInstanceAs (Monad (ExceptT ε (TsilT (PeDivM (List κ)))))
-  exact tmp
+-- instance : (MonadFlatMap' (VeilMultiExecM_' κ ε ρ σ)) := by
+--   have tmp := inferInstanceAs (MonadFlatMap' (VeilMultiExecM_'' κ ε ρ σ))
+--   exact tmp
+
+-- instance : (Monad (TsilT (ExceptT ε (PeDivM (List κ))))) := by
+--   have tmp := inferInstanceAs (Monad (ExceptT ε (TsilT (PeDivM (List κ)))))
+--   exact tmp
 
 -- instance : (Monad (VeilMultiExecM_'' κ ε ρ σ)) := by
 --   have tmp := inferInstanceAs (Monad (VeilMultiExecM_' κ ε ρ σ))
 --   exact tmp
 
-instance : (LawfulMonad (TsilT (ExceptT ε (PeDivM (List κ))))) := by
-  have tmp := inferInstanceAs (LawfulMonad (ExceptT ε (TsilT (PeDivM (List κ)))))
-  exact tmp
+-- instance : (LawfulMonad (TsilT (ExceptT ε (PeDivM (List κ))))) := by
+--   have tmp := inferInstanceAs (LawfulMonad (ExceptT ε (TsilT (PeDivM (List κ)))))
+--   exact tmp
 
 -- instance : (LawfulMonad (VeilMultiExecM_'' κ ε ρ σ)) := by
 --   have tmp := inferInstanceAs (LawfulMonad (VeilMultiExecM_' κ ε ρ σ))
 --   exact tmp
 
-instance [inst : (MAlgOrdered (ExceptT ε (TsilT (PeDivM (List κ)))) Prop)]
-  : (MAlgOrdered (TsilT (ExceptT ε (PeDivM (List κ)))) Prop) := inst
+-- instance [inst : (MAlgOrdered (ExceptT ε (TsilT (PeDivM (List κ)))) Prop)]
+--   : (MAlgOrdered (TsilT (ExceptT ε (PeDivM (List κ)))) Prop) := inst
 
 -- instance [inst : (MAlgOrdered (VeilMultiExecM_' κ ε ρ σ) (ρ → σ → Prop))]
 --   : (MAlgOrdered (VeilMultiExecM_'' κ ε ρ σ) (ρ → σ → Prop)) := inst
 
 -- set_option synthInstance.maxSize 256 in
 -- set_option synthInstance.maxHeartbeats 100000 in
-set_option trace.Meta.synthInstance.answer true in
-set_option trace.Meta.synthInstance.instances true in
+-- set_option trace.Meta.synthInstance.answer true in
+-- set_option trace.Meta.synthInstance.instances true in
+set_option diagnostics true in
 open AngelicChoice in
 open TotalCorrectness in
 #check fun (hd : ε → Prop) =>
   let _ : IsHandler hd := ⟨⟩
-  @testtesttest (ExceptT ε (PeDivM (List κ))) Prop
-    (inferInstance)
-    (inferInstance)
-    (inferInstance)
-    (inferInstance)
-    (inferInstance)
+  -- inferInstanceAs
+  --   (LawfulMonadFlatMapSup (TsilT (ExceptT ε (PeDivM (List κ)))) Prop Eq)
+  -- let tmp : (LawfulMonadFlatMapSup (TsilT (ExceptT ε (PeDivM (List κ)))) Prop Eq) :=
+  --   (@testtesttest (ExceptT ε (PeDivM (List κ))) Prop
+  --   (inferInstance)
+  --   (inferInstance)
+  --   (inferInstance)
+  --   (inferInstance)
+  --   (inferInstance))
+  inferInstanceAs
+    (LawfulMonadFlatMapSup
+      -- (TsilT (ExceptT ε (PeDivM (List κ))))
+      (VeilMultiExecM_'' κ ε ρ σ)
+      -- Prop
+      (ρ → σ → Prop)
+      -- Eq
+      (relLift <| relLift Eq)
+      )
+  -- inferInstanceAs (type_of% (@testtesttest (ExceptT ε (PeDivM (List κ))) Prop
+  --   (inferInstance)
+  --   (inferInstance)
+  --   (inferInstance)
+  --   (inferInstance)
+  --   (inferInstance)))
   -- TODO why automatic inference does not work here?
   -- inferInstanceAs (LawfulTsilTCoreMAlgSup (ExceptT ε (PeDivM (List κ))) Prop)
   -- inferInstanceAs (LawfulMonadFlatMapSup
