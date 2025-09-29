@@ -210,6 +210,17 @@ instance
 abbrev relLift (p : l → l → Prop) : (α → l) → (α → l) → Prop :=
   fun f g => ∀ a, p (f a) (g a)
 
+instance
+  [MonadFlatMapGo m n]
+  [Monad m]
+  [Monad n]
+  [CompleteLattice l]
+  [MAlgOrdered m (a → l)]
+  [MAlgOrdered n (a → l)]
+  [inst : LawfulMonadFlatMapGo m n (a → l) (relLift Eq)]
+  : LawfulMonadFlatMapGo m n (a → l) Eq where
+  go_sound := by introv ; ext a ; apply inst.go_sound
+
 variable [CompleteLattice l] (l1 l2 : Nat → l) in
 #check (rfl : (l1 ≤ l2) =
   -- (∀ x, l1 x ≤ l2 x))
@@ -495,6 +506,15 @@ class LawfulMonadFlatMapSup (m : Type u → Type v) (l : Type u)
   where
   sound : ∀ (xs : List (m α)) (post : α → l),
     p (⨆ a ∈ xs, wp a post) (wp (inst.op xs) post)
+
+instance
+  [Monad m]
+  [MonadFlatMap' m]
+  [CompleteLattice l]
+  [MAlgOrdered m (a → l)]
+  [inst : LawfulMonadFlatMapSup m (a → l) (relLift Eq)]
+  : LawfulMonadFlatMapSup m (a → l) Eq where
+  sound := by introv ; ext a ; apply inst.sound
 
 instance
   [inst : MonadFlatMap' m]
@@ -1536,7 +1556,9 @@ open TotalCorrectness in
     (VeilMultiExecM_'' κ ε ρ σ)
     -- (σ → Prop)
     (ρ → σ → Prop)
-    (relLift <| relLift Eq))
+    -- (relLift <| relLift Eq)
+    Eq
+    )
 
 -- NOTE: this is direct for `VeilMultiExecM_''` but not for `VeilMultiExecM_'`, see the reason above
 set_option trace.Meta.synthInstance.answer true in
@@ -1817,6 +1839,20 @@ theorem ExtractNonDet.extract_list_eq_wp
     introv ; rw [Candidates.find_iff (self := ec.core)] ; exact id
 
 end AngelicChoice
+
+end test
+
+section put_together
+
+open AngelicChoice TotalCorrectness in
+theorem VeilM.extract_list_eq_wp
+  (s : NonDetT (VeilExecM ε ρ σ) α)
+  (ex : ExtractNonDet (ExtCandidates Candidates (List κ)) s)
+  (hd : ε → Prop) [IsHandler hd] :
+  wp s post = wp (s.extractList (VeilMultiExecM_'' κ ε ρ σ) ex) post := by
+  apply ExtractNonDet.extract_list_eq_wp
+
+end put_together
 
 #exit
 
