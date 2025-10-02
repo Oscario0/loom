@@ -75,7 +75,7 @@ syntax "bdef" ident leafny_binder* "returns" "(" ident ":" term ")"
   (require_caluse )*
   (ensures_caluse)* "do" doSeq : command
 
-syntax "prove_correct" ident "by" tacticSeq : command
+syntax "prove_correct" ident Termination.suffix "by" tacticSeq : command
 
 private def toBracketedBinderArrayLeafny (stx : Array (TSyntax `leafny_binder)) : MetaM (TSyntaxArray `Lean.Parser.Term.bracketedBinder) := do
   let mut binders := #[]
@@ -213,7 +213,9 @@ private def Array.andList (ts : Array (TSyntax `term)) : TermElabM (TSyntax `ter
 
 macro_rules
   | `(tactic|loom_solver) =>
-    `(tactic|aesop)
+    `(tactic|(
+      try simp at *
+      aesop))
 
 macro_rules
   | `(doElem| while $t
@@ -302,7 +304,7 @@ elab_rules : command
 
 @[incremental]
 elab_rules : command
-  | `(command| prove_correct $name:ident by%$tkp $proof:tacticSeq) => do
+  | `(command| prove_correct $name:ident $suf:suffix by%$tkp $proof:tacticSeq) => do
     let ctx <- velvetObligations.get
     let .some obligation := ctx[name.getId]? | throwError "no obligation found"
     let bindersIdents := obligation.binderIdents
@@ -312,7 +314,7 @@ elab_rules : command
     let pre := obligation.pre
     let post := obligation.post
     let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
-    let proofSeq ← `(tacticSeq|
+    let proofSeq ← withRef tkp `(tacticSeq|
       unfold $name
       ($proof))
     let balanceOld := mkIdent `balanceOld
@@ -322,7 +324,7 @@ elab_rules : command
       triple
         (fun $(bal):ident : Bal => ($bal:ident = $(balanceOld)) ∧ $pre)
         ($name $ids*)
-        (fun $retId => fun $ret : Bal => $post) := by $proofSeq)
+        (fun $retId => fun $ret : Bal => $post) := by $proofSeq $suf)
     Command.elabCommand thmCmd
     velvetObligations.modify (·.erase name.getId)
 
