@@ -19,11 +19,11 @@ set_option auto.smt.solver.name "cvc5"
 -- explicit termination measures due to the modulo operation
 
 method gcd (a : Nat) (b : Nat) return (res : Nat)
-  require b > 0
+  require a > 0
   ensures res > 0
   do
-    if a % b = 0 then
-      return b
+    if b = 0 then
+      return a
     else
       let remainder := a % b
       let result ← gcd b remainder
@@ -31,20 +31,17 @@ method gcd (a : Nat) (b : Nat) return (res : Nat)
   termination_by b
   decreasing_by
     apply Nat.mod_lt
-    sorry -- Termination proof would need access to precondition b > 0, TODO: need support from velvet
+    grind
 
--- Add modulo hints for the SMT solver
 attribute [solverHint] Nat.mod_lt
 
-prove_correct gcd by
-  loom_solve
+prove_correct gcd
 termination_by b
 decreasing_by all_goals(
   -- Looking at the goals, we can see the precondition is in the context
   -- We need to extract b > 0 from the WithName wrapper
-  have h : b > 0 := by
-    -- The precondition should be available in the inductive hypothesis
-    sorry -- TODO: need way to access precondition from context
   apply Nat.mod_lt
-  assumption
+  grind
   )
+by
+  loom_solve

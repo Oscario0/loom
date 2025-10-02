@@ -69,8 +69,7 @@ syntax "method" ident leafny_binder* "return" "(" ident ":" term ")"
   (ensures_caluse)* "do" doSeq
   Termination.suffix : command
 
-syntax "prove_correct" ident "by" tacticSeq
-  Termination.suffix : command
+syntax "prove_correct" ident Termination.suffix "by" tacticSeq : command
 
 syntax (priority := high) ident noWs "[" term "]" ":=" term : doElem
 syntax (priority := high) ident noWs "[" term "]" "+=" term : doElem
@@ -305,7 +304,7 @@ lemma triple_test (arr: arrInt) :
 
 @[incremental]
 elab_rules : command
-  | `(command| prove_correct $name:ident by%$tkp $proof:tacticSeq $suf:suffix) => do
+  | `(command| prove_correct $name:ident $suf:suffix by%$tkp $proof:tacticSeq) => do
     let ctx <- velvetObligations.get
     let .some obligation := ctx[name.getId]? | throwError "no obligation found"
     let bindersIdents := obligation.binderIdents
@@ -325,8 +324,7 @@ elab_rules : command
       triple
         $pre
         ($name $ids*)
-        (fun ⟨$retId, $ret⟩ => $post) := by $proofSeq
-      $suf:suffix)
+        (fun ⟨$retId, $ret⟩ => $post) := by $proofSeq $suf:suffix)
     Command.elabCommand thmCmd
     velvetObligations.modify (·.erase name.getId)
 
