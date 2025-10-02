@@ -215,7 +215,7 @@ macro_rules
   | `(tactic|loom_solver) =>
     `(tactic|(
       try simp at *
-      aesop))
+      try aesop))
 
 macro_rules
   | `(doElem| while $t
