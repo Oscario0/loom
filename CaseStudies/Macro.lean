@@ -23,13 +23,13 @@ syntax (invariantClause linebreak)* : invariants
 
 syntax "let" term ":|" term : doElem
 syntax "while" term
-  (invariantClause)*
+  (invariantClause)+
   (doneWith)?
   (decreasingTerm)?
   "do" doSeq : doElem
 syntax "while_some" term ":|" termBeforeDo "do" doSeq : doElem
 syntax "while_some" term ":|" term
-  (invariantClause)*
+  (invariantClause)+
   (doneWith)?
   "do" doSeq : doElem
 syntax "for" ident "in" termBeforeInvariant

@@ -59,10 +59,12 @@ initialize loomAssertionsMap :
   }
 
 section
-variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MAlgOrdered m l]
+variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u}
 
 set_option linter.unusedVariables false in
-def invariantGadget {invType : Type u} (inv : List invType): m PUnit := pure .unit
+def invariantGadget {l : Type u} [CompleteLattice l] [MAlgOrdered m l] (inv : List l): m PUnit := pure .unit
+
+variable {l : Type u} [CompleteLattice l] [MAlgOrdered m l]
 
 @[simp]
 abbrev invariants (f : List l) := f.foldr (·⊓·) ⊤
@@ -279,4 +281,3 @@ def WPGen.let  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Co
   prop := by
      intro post; simp; refine iInf_le_of_le y ?_
      simp; apply (wpgx y).prop
-
