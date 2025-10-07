@@ -75,7 +75,7 @@ syntax "bdef" ident leafny_binder* "returns" "(" ident ":" term ")"
   (require_caluse )*
   (ensures_caluse)* "do" doSeq : command
 
-syntax "prove_correct" ident "by" tacticSeq : command
+syntax "prove_correct" ident Termination.suffix "by" tacticSeq : command
 
 private def toBracketedBinderArrayLeafny (stx : Array (TSyntax `leafny_binder)) : MetaM (TSyntaxArray `Lean.Parser.Term.bracketedBinder) := do
   let mut binders := #[]
@@ -213,7 +213,9 @@ private def Array.andList (ts : Array (TSyntax `term)) : TermElabM (TSyntax `ter
 
 macro_rules
   | `(tactic|loom_solver) =>
-    `(tactic|aesop)
+    `(tactic|(
+      try simp at *
+      try aesop))
 
 macro_rules
   | `(doElem| while $t
@@ -302,7 +304,7 @@ elab_rules : command
 
 @[incremental]
 elab_rules : command
-  | `(command| prove_correct $name:ident by%$tkp $proof:tacticSeq) => do
+  | `(command| prove_correct $name:ident $suf:suffix by%$tkp $proof:tacticSeq) => do
     let ctx <- velvetObligations.get
     let .some obligation := ctx[name.getId]? | throwError "no obligation found"
     let bindersIdents := obligation.binderIdents
@@ -312,15 +314,19 @@ elab_rules : command
     let pre := obligation.pre
     let post := obligation.post
     let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
-    let proof <- withRef tkp ``(by $proof)
+    let proofSeq ← withRef tkp `(tacticSeq|
+      unfold $name
+      ($proof))
     let balanceOld := mkIdent `balanceOld
     let bal := mkIdent `balance
+    /- triple generation for Cashmere methods -/
     let thmCmd <- withRef tkp `(command| lemma $lemmaName $bindersIdents* :
       ∀ $(balanceOld) : Bal,
       triple
+        /- precondition about initial balance -/
         (fun $(bal):ident : Bal => ($bal:ident = $(balanceOld)) ∧ $pre)
         ($name $ids*)
-        (fun $retId => fun $ret : Bal => $post) := $proof)
+        (fun $retId => fun $ret : Bal => $post) := by $proofSeq $suf)
     Command.elabCommand thmCmd
     velvetObligations.modify (·.erase name.getId)
 
@@ -346,7 +352,7 @@ theorem tail_length : ∀ q : List Nat, q.nonEmpty → q.tail.length < q.length 
 theorem tail_sum (q: List Nat) (hnemp: q.nonEmpty): q.sum = q.tail.sum + q.head! := by
   simp [List.head!, List.tail]
   simp [List.nonEmpty] at hnemp
-  split <;> rename_i x <;> simp [hnemp]
+  split <;> rename_i x <;> simp
   rw [add_comm]
 
 @[aesop unsafe]

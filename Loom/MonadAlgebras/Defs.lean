@@ -47,6 +47,7 @@ lemma pure_intro_r {l : Type u} [CompleteLattice l] (x y : l) :
 
 variable (m : Type v -> Type u)
 
+/- Monad Algebra typeclass for a Monad m and an assertion language l -/
 class MAlg [Monad m] (l : outParam (Type v)) where
   μ : m l -> l
   pure : ∀ l, μ (pure l) = l
@@ -69,6 +70,7 @@ instance EffectObservationOfMAlg (l : Type u) {m : Type u -> Type v} [Monad m] [
     simp only [map_bind]; apply MAlg.bind
     ext; simp [MAlg.pure]
 
+/- Ordered Monad Algebra typeclass for a Monad m and an assertion language l -/
 class MAlgOrdered (l : outParam (Type v)) [Monad m] [CompleteLattice l] where
   μ : m l -> l
   μ_ord_pure : ∀ l, μ (pure l) = l
@@ -76,6 +78,7 @@ class MAlgOrdered (l : outParam (Type v)) [Monad m] [CompleteLattice l] where
     ∀ (f g : α -> m l), μ ∘ f ≤ μ ∘ g ->
       ∀ x : m α, μ (x >>= f) ≤ μ (x >>= g)
 
+/- Deriving Monad Algebra instance from an Ordered Monad Algebra instance -/
 instance OfMAlgPartialOrdered {m : Type u -> Type v} {l : Type u} [Monad m] [CompleteLattice l] [mprop : MAlgOrdered m l] : MAlg m l where
   μ := MAlgOrdered.μ
   pure := MAlgOrdered.μ_ord_pure
@@ -161,19 +164,19 @@ lemma lift_cont_eq {l σ : Type u} [CompleteLattice l] [CompleteLattice σ] (c :
     rfl
 
 instance {l} [CompleteLattice l] : LogicLiftT l l where
-  lift_top := by simp [liftM, monadLift, MonadLift.monadLift]; intros; rfl
-  lift_bot := by simp [liftM, monadLift, MonadLift.monadLift]; intros; rfl
+  lift_top := by simp [monadLift]; intros; rfl
+  lift_bot := by simp [monadLift]; intros; rfl
 
 instance [CompleteLattice l] [CompleteLattice k] [CompleteLattice p] [linst₁ : LogicLiftT l k] [linst₂ : LogicLift k p] : LogicLiftT l p where
   lift_top := by
-    simp [instMonadLiftTOfMonadLift, liftM]; intro
+    simp [instMonadLiftTOfMonadLift]; intro
     have : (monadLift (m := Cont l) (n := Cont k) (fun (_ : _ -> l) => ⊤)) = ⊤ := by {
       apply linst₁.lift_top
       assumption }
     rw [this]
     apply linst₂.lift_top
   lift_bot := by
-    simp [instMonadLiftTOfMonadLift, liftM]; intro
+    simp [instMonadLiftTOfMonadLift]; intro
     have : (monadLift (m := Cont l) (n := Cont k) (fun (_ : _ -> l) => ⊥)) = ⊥ := by {
       apply linst₁.lift_bot
       assumption }
@@ -182,10 +185,11 @@ instance [CompleteLattice l] [CompleteLattice k] [CompleteLattice p] [linst₁ :
 
 
 instance {l σ : Type u} [CompleteLattice l] : LogicLift l (σ -> l) where
-  lift_top := by simp [liftM, monadLift, MonadLift.monadLift]; intros; rfl
-  lift_bot := by simp [liftM, monadLift, MonadLift.monadLift]; intros; rfl
+  lift_top := by simp [monadLift, MonadLift.monadLift]; intros; rfl
+  lift_bot := by simp [monadLift, MonadLift.monadLift]; intros; rfl
 
 
+/- Monad Transformer Algebra typeclass -/
 class MAlgLift
   (m : semiOutParam (Type u -> Type v)) (l : semiOutParam (Type u)) [Monad m] [CompleteLattice l] [MAlgOrdered m l]
   (n : (Type u -> Type w)) (k : outParam (Type u)) [Monad n] [CompleteLattice k] [MAlgOrdered n k]
@@ -203,7 +207,7 @@ def MAlgLift.mk_rep  (m : semiOutParam (Type u -> Type v)) (l : semiOutParam (Ty
     constructor; intro α f x
     simp [MAlg.lift]; rw [←lift_map]
     rw [μ_lift (f <$> x)]
-    simp [Functor.map_map]
+    simp [Functor.map_map]; rfl
 
 def MAlgLift.mk_id  (m : semiOutParam (Type u -> Type v)) (l : semiOutParam (Type u)) [Monad m] [CompleteLattice l] [MAlgOrdered m l]
   (n : (Type u -> Type w)) [LawfulMonad m] [Monad n] [LawfulMonad n] [CompleteLattice k] [MAlgOrdered n l]

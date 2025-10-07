@@ -90,10 +90,10 @@ method insertionSort_total
         if arr[mind] < arr[mind - 1] then
           swap arr[mind - 1] arr[mind]
         mind := mind - 1
+      -- comment out line below to check produced goals
       n := n + 1
     return
 prove_correct insertionSort_total by
-  dsimp [insertionSort_total]
   loom_solve!
 
 end insertionSort
@@ -119,7 +119,6 @@ method sqrt_total (x: ℕ) return (res: ℕ)
         i := i + 1
       return i - 1
 prove_correct sqrt_total by
-  dsimp [sqrt_total]
   loom_solve
 
 --root of power 3 for a non-negative integer implemented in Velvet
@@ -139,7 +138,6 @@ method cbrt (x: ℕ) return (res: ℕ)
         i := i + 1
       return i - 1
 prove_correct cbrt by
-  dsimp [cbrt]
   loom_solve
   --SMT failed to discharge one goal, but grind succeeds
   grind
@@ -198,7 +196,6 @@ method sqrt_bn (x: ℕ) (bnd: ℕ) return (res: ℕ)
         r := m
     return l
 prove_correct sqrt_bn by
-  dsimp [sqrt_bn]
   loom_solve!
 
 end squareRoot

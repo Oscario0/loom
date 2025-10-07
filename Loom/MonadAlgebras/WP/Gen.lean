@@ -7,7 +7,7 @@ import Loom.MonadAlgebras.WP.Basic
 import Loom.MonadAlgebras.WP.Liberal
 import Loom.MonadAlgebras.WP.DoNames'
 
-open Lean Elab Command
+open Lean Meta Elab Command Term
 
 universe u v w
 
@@ -59,10 +59,12 @@ initialize loomAssertionsMap :
   }
 
 section
-variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MAlgOrdered m l]
+variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l]
 
 set_option linter.unusedVariables false in
-def invariantGadget {invType : Type u} (inv : List invType) [CompleteLattice invType] [MAlgOrdered m invType] : m PUnit := pure .unit
+def invariantGadget (inv : List l): m PUnit := pure .unit
+
+variable [MAlgOrdered m l]
 
 @[simp]
 abbrev invariants (f : List l) := f.foldr (·⊓·) ⊤
@@ -71,11 +73,11 @@ abbrev invariants (f : List l) := f.foldr (·⊓·) ⊤
 
 
 set_option linter.unusedVariables false in
-def onDoneGadget {invType : Type u} (inv : invType) [CompleteLattice invType] [MAlgOrdered m invType] : m PUnit := pure .unit
+def onDoneGadget {invType : Type u} (inv : invType) : m PUnit := pure .unit
 
 
 set_option linter.unusedVariables false in
-def assertGadget {l : Type u} (h : l) [CompleteLattice l] [MAlgOrdered m l] : m PUnit := pure .unit
+def assertGadget {l : Type u} (h : l) : m PUnit := pure .unit
 
 
 set_option linter.unusedVariables false in
@@ -195,7 +197,7 @@ theorem triple_forIn_deacreasing {β} {measure : β -> ℕ}
   { simp; intro i b
     by_cases h : measure b + i ≤ measure init <;> simp [h, triple]
     apply le_trans; apply hstep; omega
-    apply wp_cons; rintro (b'|b') <;> simp [triple]
+    apply wp_cons; rintro (b'|b') <;> simp
     by_cases h: measure b' = 0 <;> simp [h]
     by_cases h': measure b' < measure b <;> simp [h']
     have : measure b' + (i + 1) ≤ measure init := by omega
@@ -271,6 +273,7 @@ def WPGen.if {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Comp
     apply le_trans (b := (wpgy hc).get post)
     exact hi hc
     apply (wpgy hc).prop
+
 noncomputable
 def WPGen.let  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
   (y : β) {x : β -> m α} (wpgx : ∀ y, WPGen (x y)) : WPGen (let z := y; x z) where

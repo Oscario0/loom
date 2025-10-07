@@ -45,7 +45,7 @@ lemma wlp_true (c : m α) : wlp c (fun _ => ⊤) = ⊤ := by
 @[simp]
 lemma wlp_pure (x : α) (post : α -> l) :
   wlp (pure (f := m) x) post = post x := by
-    simp [wlp, wp_pure, triple_pure]
+    simp [wlp, wp_pure]
 
 omit [LawfulMonad m] in
 lemma wp_wlp (c : m α) (post : α -> l) :
@@ -58,11 +58,7 @@ variable [MAlgDet m l]
 lemma wlp_and (c : m α) (post₁ post₂ : α -> l) :
   wlp c (fun x => post₁ x ⊓ post₂ x) = wlp c post₁ ⊓ wlp c post₂ := by
   simp [wlp]; apply le_antisymm
-  { simp [wp_or, wp_and]; repeat' constructor
-    { apply le_sup_of_le_left; apply inf_le_of_left_le; rfl }
-    { apply le_sup_of_le_right; apply inf_le_of_left_le; rfl }
-    { apply le_sup_of_le_left; apply inf_le_of_right_le; rfl }
-    apply le_sup_of_le_right; apply inf_le_of_right_le; rfl }
+  { simp [wp_or, wp_and] }
   rw (occs := .pos [3]) [sup_comm]; rw [<-himp_eq]; simp
   rw [inf_inf_distrib_right]
   conv =>
@@ -103,13 +99,9 @@ lemma wlp_himp (c : m α) (post post' : α -> l) :
   wp c (fun x => post' x ⇨ post x) = wlp c post' ⇨ wp c post := by
     rw [himp_eq, wlp]; simp [himp_eq, wp_or]
     apply le_antisymm <;> simp
-    { rw [<-compl_compl (x := wp c post'ᶜ ⊓ (wp c post')ᶜ)]
-      rw [<-himp_eq]; simp; rw [@inf_sup_left]; simp [<-wp_and]
-      apply wp_cons; simp }
-    rw [<-le_himp_iff, himp_eq]; simp
-    refine le_sup_of_le_left ?_
-    refine le_sup_of_le_right ?_
-    simp
+    rw [<-compl_compl (x := wp c post'ᶜ ⊓ (wp c post')ᶜ)]
+    rw [<-himp_eq]; simp; rw [@inf_sup_left]; simp [<-wp_and]
+    apply wp_cons; simp
 
 lemma wlp_join_wp (c : m α) (post post' : α -> l) :
   wlp c post ⊓ wp c post' = wp c (fun x => post x ⊓ post' x) := by
@@ -140,7 +132,7 @@ lemma wp_top_iwp (c : m α) (post : α -> l) :
   { simp; simp [<-le_himp_iff, himp_eq, <-wp_or]; rfl }
   simp; constructor
   { apply wp_cons; simp }
-  rw [@le_compl_iff_disjoint_left]; intro; intro _ _
+  rw [@le_compl_iff_disjoint_left]; intro _ _ _
   apply le_trans'; rewrite [<- wpb];
   rw [<-compl_inf_eq_bot (a := post)]
   erw [wp_and]; simp; solve_by_elim
@@ -212,7 +204,7 @@ lemma TotalCorrectness.DivM.wlp_eq (α : Type) (x : DivM α) (post : α -> Prop)
 
 lemma PartialCorrectness.DivM.wlp_eq (α : Type) (x : DivM α) (post : α -> Prop) :
   wlp x post = wp x post := by
-  simp [wlp, TotalCorrectness.DivM.wp_eq, PartialCorrectness.DivM.wp_eq]
+  simp [wlp, PartialCorrectness.DivM.wp_eq]
   split <;> simp
 
 omit [MAlgDet m l] in

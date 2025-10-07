@@ -116,7 +116,6 @@ method VSpV
     return
 
 prove_correct VSpV by
-  dsimp [VSpV]
   loom_solve
 
 --CSR matrix by a vector multiplication
@@ -145,7 +144,6 @@ method spmv
     return
 
 prove_correct spmv by
-  dsimp [spmv]
   loom_solve
 
 --helper function for calculation of dot product on sparse vectors
@@ -272,7 +270,7 @@ theorem spv_dot_gt
       rw [spv_dot] at sum_eq
       have neq: ¬(SpVT.size spv1 ≤ pnt1 ∨ SpVT.size spv2 ≤ pnt2) := by omega
       try simp only [loomAbstractionSimp] at *
-      simp [neq, ind_neq, ind_le] at sum_eq
+      simp [neq, ind_neq] at sum_eq
       have ilt: ¬((SpVT.ind spv1)[pnt1] < (SpVT.ind spv2)[pnt2]) := by
         try simp only [loomAbstractionSimp] at *
         omega
@@ -295,12 +293,10 @@ theorem spv_dot_exh
 --proofs for sparse vector by sparse vector multiplication
 --and sparse matrix by sparse vector multiplication algorithms
 prove_correct SpVSpV by
-  dsimp [SpVSpV]
   loom_solve
 
 
 prove_correct SpMSpV by
-  dsimp [SpMSpV]
   loom_solve
 
 --now we will prove that presented algorithms indeed calculate
@@ -324,7 +320,7 @@ theorem getValSpV_eq (spv: SpVAbs) (j: ℕ) (h_ind: j < SpVT.size spv): spv[(SpV
       rintro j₁ j₁_lt
       rw [(SpVT.h_sz_eq spv).left] at h_ind
       have inj := SpVT.h_inc spv j₁ j (lt_trans j₁_lt h_ind) h_ind j₁_lt
-      simp [GetElem.getElem] at inj
+      simp at inj
       simp [lt_iff_le_and_ne.mp inj] }
     simp [toList, h_ind]; rw [(SpVT.h_sz_eq spv).right, ←(SpVT.h_sz_eq spv).left]; simp [h_ind]
   simp [GetElem.getElem] at just_case
@@ -436,7 +432,7 @@ theorem VSpV_correct_triple (out: arrVal) (arr: arrVal) (spv: SpVAbs):
       { rintro ⟨u, ⟨outNew⟩⟩; simp
         intro sum_eq sz
         exact VSpV_correct_pure outNew arr spv h_b sz sum_eq }
-      simp [triple]
+      simp
       have triple_true := VSpV_correct out arr spv
       simp [triple, WithName] at triple_true
       exact triple_true
@@ -488,11 +484,9 @@ theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
         0 := by
   fun_induction spv_dot spv1 spv2 pnt1 pnt2 with
   | case1 p1 p2 h =>
-    rw [spv_dot]
-    rw [if_pos h]
     have all_zero: (∀ x ∈ Finset.range n, (if max (if SpVT.size spv1 ≤ p1 then n else (SpVT.ind spv1)[p1]) (if SpVT.size spv2 ≤ p2 then n else (SpVT.ind spv2)[p2]) ≤ x then spv1[x] * spv2[x] else 0) = 0) := by
       intro x hx
-      simp [h]
+      simp
       rcases h with ob1 | ob2
       { simp [ob1]
         simp at hx
@@ -502,7 +496,7 @@ theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
       simp [hx]
     rw [Finset.sum_eq_zero all_zero]
   | case2 p1 p2 h1 eq ih =>
-    rw [spv_dot, if_neg h1, if_pos eq, ih, ←getValSpV_eq spv1 p1 (by omega), ←getValSpV_eq spv2 p2 (by omega)]
+    rw [ih, ←getValSpV_eq spv1 p1 (by omega), ←getValSpV_eq spv2 p2 (by omega)]
     have sum_eq_single:
       ∑ i ∈ Finset.range n, (if i = (SpVT.ind spv1)[p1] then spv1[(SpVT.ind spv1)[p1]] * spv2[(SpVT.ind spv1)[p1]] else 0) = (if (SpVT.ind spv1)[p1] = (SpVT.ind spv1)[p1] then spv1[(SpVT.ind spv1)[p1]] * spv2[(SpVT.ind spv1)[p1]] else 0) := by
       have hb: ∀ i ∈ Finset.range n, i ≠ (SpVT.ind spv1)[p1] → ((if i = (SpVT.ind spv1)[p1] then spv1[(SpVT.ind spv1)[p1]] * spv2[(SpVT.ind spv1)[p1]] else 0) = 0) := by
@@ -588,7 +582,7 @@ theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
     simp [interm_lemma spv1 x p1 (by omega) (by omega)]
     rfl
   | case3 p1 p2 h1 neq le ih =>
-    rw [spv_dot, if_neg h1, if_neg neq, if_pos le, ih]
+    rw [ih]
     apply Finset.sum_congr
     { rfl }
     intro x hx
@@ -598,7 +592,7 @@ theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
       simp at hx
       have nx : ¬(n ≤ x) := by omega
       by_cases b2: SpVT.size spv2 ≤ p2 <;> simp [b2] <;> simp [nx]
-      by_cases ifc: (SpVT.ind spv1)[p1] ≤ x ∧ (SpVT.ind spv2)[p2] ≤ x <;> simp [ifc]
+      intro ifc1 ifc2
       by_cases ex: ∃ i < SpVT.size spv1, (SpVT.ind spv1)[i] = x
       { rcases ex with ⟨i, ib, hi⟩
         by_cases il: p1 < i
@@ -609,7 +603,7 @@ theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
           omega }
         have contra := SpVT.h_inc spv1 i p1 ib (by omega) ilt
         simp [getElem] at hi
-        simp [getElem] at ifc
+        simp [getElem] at ifc1
         omega }
       simp at ex
       simp [getValSpV_empty spv1 x ex] }
@@ -646,7 +640,7 @@ theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
     simp at ex
     simp [getValSpV_empty spv1 x ex]
   | case4 p1 p2 h1 neq nle ih =>
-    rw [spv_dot, if_neg h1, if_neg neq, if_neg nle, ih]
+    rw [ih]
     apply Finset.sum_congr
     { rfl }
     intro x hx
@@ -656,7 +650,7 @@ theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
       simp at hx
       have nx : ¬(n ≤ x) := by omega
       by_cases b1: SpVT.size spv1 ≤ p1 <;> simp [b1] <;> simp [nx]
-      by_cases ifc: (SpVT.ind spv1)[p1] ≤ x ∧ (SpVT.ind spv2)[p2] ≤ x <;> simp [ifc]
+      intro ifc1 ifc2
       by_cases ex: ∃ i < SpVT.size spv2, (SpVT.ind spv2)[i] = x
       { rcases ex with ⟨i, ib, hi⟩
         by_cases il: p2 < i
@@ -667,7 +661,7 @@ theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
           omega }
         have contra := (SpVT.h_inc spv2) i p2 ib (by omega) ilt
         simp [getElem] at hi
-        simp [getElem] at ifc
+        simp [getElem] at ifc2
         omega }
       simp at ex
       simp [getValSpV_empty spv2 x ex] }
@@ -714,7 +708,7 @@ theorem spv_dot_pure (spv1 spv2: SpVAbs) (n: ℕ)
       intro x hx
       simp at hx
       by_cases em1: SpVT.size spv1 = 0 <;> simp [em1]
-      { simp [lt_iff_le_not_le.mp hx]
+      { simp [lt_iff_le_not_ge.mp hx]
         simp [getValSpV_empty spv1 x (by intro i hi; omega)] }
       by_cases em2: SpVT.size spv2 = 0 <;> simp [em2]
       { intros

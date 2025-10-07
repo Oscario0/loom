@@ -15,6 +15,10 @@ open Lean.Elab.Term.DoNames
 
 open ExceptionAsFailure
 
+/- all the necessarily instances for CashmereM = NonDetT (ExceptT String (StateT Bal DivM))
+   are generated automatically, including
+   μ - Ordered Monad Algebra instance for CashmereM -/
+
 instance demonic_exception: MonadExceptOf String CashmereM where
   throw e := liftM (m := ExceptT String (StateT Bal DivM)) (throw e)
   tryCatch := fun x _ => x
@@ -51,7 +55,6 @@ bdef withdraw (amount : Nat) returns (u: Unit)
 
 open PartialCorrectness DemonicChoice in
 prove_correct withdraw by
-  dsimp [withdraw]
   loom_solve
 
 --withdraw a list of values, Section 2.3
@@ -71,7 +74,6 @@ bdef withdrawSession (amounts : List Nat) returns (u: Unit)
 
 open PartialCorrectness DemonicChoice in
 prove_correct withdrawSession by
-  dsimp [withdrawSession]
   loom_solve!
 
 --adding termination measure for total correctness, Section 2.4
@@ -91,7 +93,6 @@ bdef withdrawSessionTot (amounts : List Nat) returns (u: Unit)
 
 open TotalCorrectness DemonicChoice in
 prove_correct withdrawSessionTot by
-  dsimp [withdrawSessionTot]
   loom_solve!
 
 --withdraw a concrete session and throw an exception if balance goes below zero, Section 2.5
@@ -116,7 +117,6 @@ bdef withdrawSessionExcept (amounts : List Nat) returns (u: Unit)
 
 open TotalCorrectness DemonicChoice in
 prove_correct withdrawSessionExcept by
-  dsimp [withdrawSessionExcept]
   loom_solve!
 
 --withdraw a session that does not bring balance below zero, Section 2.6
@@ -141,7 +141,6 @@ bdef withdrawSessionNonDet returns (history : List Nat)
 
 open TotalCorrectness DemonicChoice in
 prove_correct withdrawSessionNonDet by
-  dsimp [withdrawSessionNonDet]
   loom_solve!
 
 --we can actually run our code

@@ -66,9 +66,10 @@ syntax "ensures" termBeforeReqEnsDo : ensures_caluse
 
 syntax "method" ident leafny_binder* "return" "(" ident ":" term ")"
   (require_caluse )*
-  (ensures_caluse)* "do" doSeq : command
+  (ensures_caluse)* "do" doSeq
+  Termination.suffix : command
 
-syntax "prove_correct" ident "by" tacticSeq : command
+syntax "prove_correct" ident Termination.suffix "by" tacticSeq : command
 
 syntax (priority := high) ident noWs "[" term "]" ":=" term : doElem
 syntax (priority := high) ident noWs "[" term "]" "+=" term : doElem
@@ -127,6 +128,8 @@ def getIds (stx : Array (TSyntax `leafny_binder)) : MetaM (Array Ident) := do
     | _ => throwError "unexpected syntax in leafny binder: {b}"
   return ids
 
+abbrev doMatchAltExpr := Term.matchAlt (rhsParser := Term.doSeq)
+
 mutual
 partial def expandLeafnyDoSeq (modIds : Array Ident) (stx : doSeq) : TermElabM (Array doSeqItem) :=
   match stx with
@@ -158,6 +161,17 @@ partial def expandLeafnyDoSeqItem (modIds : Array Ident) (stx : doSeqItem) : Ter
     expandLeafnyDoSeqItem modIds $ <- `(Term.doSeqItem| if $h:ident : $t:term then $thn else pure ())
   | `(Term.doSeqItem| if $t:term then $thn:doSeq) =>
     expandLeafnyDoSeqItem modIds $ <- `(Term.doSeqItem| if $t then $thn:doSeq else pure ())
+  | `(Term.doSeqItem| match $discrs:matchDiscr,* with $[$alts:matchAlt]*) =>
+    let alts' ← alts.mapM fun (alt : TSyntax _) => do
+      match alt with
+      | `(doMatchAltExpr| | $a,* => $rhs:doSeq) =>
+        let rhs' ← expandLeafnyDoSeq modIds rhs
+        let alt' ← `(doMatchAltExpr| | $a,* => $rhs'*)
+        pure ⟨alt'.raw⟩
+      | _ =>
+        pure alt
+    let ret ← `(Term.doSeqItem| match $discrs:matchDiscr,* with $[$alts':matchAlt]*)
+    return #[ret]
   | `(Term.doSeqItem| if $t:term then $thn:doSeq else $els:doSeq) =>
     let thn <- expandLeafnyDoSeq modIds thn
     let els <- expandLeafnyDoSeq modIds els
@@ -178,7 +192,7 @@ partial def expandLeafnyDoSeqItem (modIds : Array Ident) (stx : doSeqItem) : Ter
       if argName ∈ modArgs then throwErrorAt arg s!"mutable arguments cannot alias"
       modArgs := modArgs.push argName
       mods := mods.push $ <- withRef arg `(Term.doSeqItem| $(mkIdent argName):ident := $a:ident)
-    return #[<-`(Term.doSeqItem| let ⟨$id, _⟩ <- $trm:term)] ++ mods
+    return #[<-`(Term.doSeqItem| let $id <- $trm:term)] ++ mods
   | `(Term.doSeqItem| $trm:term) =>
     let id := mkIdent <| <- mkFreshUserName `ret
     let `($t:ident $args:term*) := trm | pure #[stx]
@@ -222,6 +236,7 @@ elab_rules : command
   method $name:ident $binders:leafny_binder* return ( $retId:ident : $type:term )
   $[require $req:term]*
   $[ensures $ens:term]* do $doSeq:doSeq
+  $suf:suffix
   ) => do
   let (defCmd, obligation, testingCtx) ← Command.runTermElabM fun _vs => do
     let bindersIdents ← toBracketedBinderArrayLeafny binders
@@ -243,7 +258,8 @@ elab_rules : command
       retType <- `(($modId:ident : $mutType) × $retType)
     let defCmd <- `(command|
       set_option linter.unusedVariables false in
-      def $name $bindersIdents* : VelvetM (($retId:ident : $type) × $retType) := do $mods* $doSeq*)
+      def $name $bindersIdents* : VelvetM (($retId:ident : $type) × $retType) := do $mods* $doSeq*
+      $suf:suffix)
     -- let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
 
     let reqName <- `(name| `require)
@@ -288,7 +304,7 @@ lemma triple_test (arr: arrInt) :
 
 @[incremental]
 elab_rules : command
-  | `(command| prove_correct $name:ident by%$tkp $proof:tacticSeq) => do
+  | `(command| prove_correct $name:ident $suf:suffix by%$tkp $proof:tacticSeq) => do
     let ctx <- velvetObligations.get
     let .some obligation := ctx[name.getId]? | throwError "no obligation found"
     let bindersIdents := obligation.binderIdents
@@ -299,13 +315,16 @@ elab_rules : command
     let post := obligation.post
     let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
     -- let proof <- withRef tkp ``()
+    let proofSeq ← withRef tkp `(tacticSeq|
+      unfold $name
+      ($proof))
     let thmCmd <- withRef tkp `(command|
-      @[spec]
+      @[loomSpec]
       lemma $lemmaName $bindersIdents* :
       triple
         $pre
         ($name $ids*)
-        (fun ⟨$retId, $ret⟩ => $post) := by $proof)
+        (fun ⟨$retId, $ret⟩ => $post) := by $proofSeq $suf:suffix)
     Command.elabCommand thmCmd
     velvetObligations.modify (·.erase name.getId)
 

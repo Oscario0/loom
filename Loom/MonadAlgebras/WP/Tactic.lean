@@ -2,6 +2,7 @@ import Lean
 
 import Loom.MonadAlgebras.WP.Attr
 import Loom.MonadAlgebras.WP.DoNames'
+import Loom.MonadAlgebras.WP.Matcher
 
 open Lean Parser Meta Elab Term Command Tactic
 
@@ -40,9 +41,49 @@ elab "show_all_goals" : tactic => do
 
 macro "try_resolve_spec_goals" : tactic => `(tactic| try is_not_wpgen_goal; solve | rfl | solve_by_elim | simp)
 
+/-- An ad-hoc solution to passing the termination check, by deriving
+    conditions of the form `sizeOf x < sizeOf y` from equalities in the context.
+    These equalities can be introduced by, for example, subgoals of `WPGen`. -/
+elab "wpgen_generate_size_conditions" : tactic => do
+  withMainContext do
+  let goalType ← getMainTarget
+  let_expr WPGen _m _mInst _α _l _lInst _mPropInst x := goalType | throwError "{goalType} is not a WPGen"
+  let candidates ← x.getAppArgs'.filterM fun e => do
+    unless e.isFVar do return false
+    if Expr.isSort (← inferType e) then return false
+    pure true
+  for c in candidates do
+    let cIdent ← Lean.mkIdent <$> c.fvarId!.getUserName
+    let lctx ← getLCtx
+    for ldecl in lctx do
+      if ldecl.isImplementationDetail then continue
+      let ty ← instantiateMVars ldecl.type
+      let_expr Eq _ a b := ty | continue
+      unless a.isFVar || b.isFVar do continue
+      if a == c || b == c then continue
+      let larger := if c.occurs a then Option.some b else (if c.occurs b then some a else none)
+      let some larger := larger | continue
+      let .fvar larger := larger | continue
+      let largerIdent ← Lean.mkIdent <$> larger.getUserName
+      evalTactic (← `(tactic| have : sizeOf $cIdent:ident < sizeOf $largerIdent:ident := by
+        subst $largerIdent ; simp))
+
 def generateWPStep : TacticM (Bool × Expr) := withMainContext do
   let goalType <- getMainTarget
   let_expr WPGen _m _mInst _α _l _lInst _mPropInst x := goalType | throwError "{goalType} is not a WPGen"
+  if let some app ← matchMatcherApp? x then
+    let name := app.matcherName
+    if let some res ← Loom.Matcher.constructWPGen name then
+      -- MetaM.run' <| /- realizeConst name (name ++ `WPGen) -/ (Loom.Matcher.defineWPGen name |>.run')
+      /-
+      error message: cannot add declaration test1.match_3.WPGen to environment as it is restricted to the prefix test1_correct
+      -/
+      withMainContext do
+        let goal ← getMainGoal
+        let tmp ← Loom.Matcher.partiallyInstantiateWPGen #[_α, _m, _mInst, _l] res app
+        let goals ← goal.apply tmp
+        replaceMainGoal goals
+      return (true, x)
   let cs <- findSpec x
   for elem in cs do
     try
@@ -58,15 +99,27 @@ def generateWPStep : TacticM (Bool × Expr) := withMainContext do
             (←`(term| $spec))
             (Array.replicate num_args (←`(term|?_)))
         let refine_tac ← `(tactic|refine $refine_part)
-        evalTactic $ <- `(tactic|
+        try
+          evalTactic $ <- `(tactic|
+          eapply $(mkIdent ``WPGen.spec_triple);
+          apply $spec)
+          return (true, x)
+        catch _ =>
+          evalTactic $ <- `(tactic|
           eapply $(mkIdent ``WPGen.spec_triple);
           $refine_tac)
+          return (true, x)
       return (true, x)
     catch _ => continue
-  let some mainName ← getDeclName? | throwError s!"no lemma name provided"
+  let some ⟨rsx, _⟩ := x.getAppFn.const? | return (false, x)
+  let rsxCorrect := (rsx.toString ++ "_correct").toName
+  let some mainName ← getDeclName? | throwError s!"no lemma name found for goal:{goalType}"
+  if mainName ≠ rsxCorrect then
+    return (false, x)
   let mainNameIdent := mkIdent mainName
   try
     evalTactic $ <- `(tactic|
+        wpgen_generate_size_conditions;
         eapply $(mkIdent ``WPGen.spec_triple);
         apply $mainNameIdent)
     return (true, x)
@@ -153,8 +206,8 @@ macro "mwp" : tactic => `(tactic| (
   try unfold spec typeWithName at *
   ))
 
-attribute [spec high, loomWpSimp] WPGen.if
-attribute [spec, loomWpSimp] WPGen.bind WPGen.pure WPGen.assert WPGen.forWithInvariant WPGen.map
+attribute [loomSpec high, loomWpSimp] WPGen.if
+attribute [loomSpec, loomWpSimp] WPGen.bind WPGen.pure WPGen.assert WPGen.forWithInvariant WPGen.map
 attribute [loomWpSimp] spec WPGen.spec_triple
 
 @[loomLogicSimp]

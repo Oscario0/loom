@@ -23,14 +23,14 @@ syntax (invariantClause linebreak)* : invariants
 
 syntax "let" term ":|" term : doElem
 syntax "while" term
-  (invariantClause)*
+  (invariantClause)+
   (doneWith)?
   (decreasingTerm)?
   "do" doSeq : doElem
 syntax "while_some" term ":|" termBeforeDo "do" doSeq : doElem
 syntax "while_some" term ":|" term
-  (invariantClause)*
-  doneWith
+  (invariantClause)+
+  (doneWith)?
   "do" doSeq : doElem
 syntax "for" ident "in" termBeforeInvariant
   (invariantClause)+
@@ -78,8 +78,11 @@ macro_rules
   | `(doElem| while_some $x:ident :| $t
               $[invariant $inv:term
               ]*
-              done_with $inv_done do
-                $seq:doSeq) =>
+              $[done_with $inv_done]? do
+                $seq:doSeq) => do
+    let invd_some ← match inv_done with
+    | some invd_some => withRef invd_some ``($invd_some)
+    | none => ``(¬$t:term)
     match seq with
     | `(doSeq| $[$seq:doElem]*)
     | `(doSeq| $[$seq:doElem;]*)
@@ -87,7 +90,7 @@ macro_rules
       `(doElem|
         for _ in Lean.Loop.mk do
           invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
-          onDoneGadget (with_name_prefix `done $inv_done:term)
+          onDoneGadget (with_name_prefix `done $invd_some:term)
           if ∃ $x:ident, $t then
             let $x :| $t
             $[$seq:doElem]*
