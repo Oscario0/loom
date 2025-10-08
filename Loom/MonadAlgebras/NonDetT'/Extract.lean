@@ -123,7 +123,7 @@ instance {p : α -> Prop} [FinEnum α] [DecidablePred p] : Findable p where
   find_none := by simp
   find_some_p := by intro x h; have := List.find?_some h; aesop
 
-inductive ExtractNonDet (findable : {τ : Type u} -> (τ -> Prop) -> Type u) {m} : {α : Type u} -> NonDetT m α -> Type _ where
+inductive ExtractNonDet (findable : {τ : Type u} -> (τ -> Prop) -> Type w) {m} : {α : Type u} -> NonDetT m α -> Type _ where
   | pure {α} : ∀ (x : α), ExtractNonDet findable (NonDetT.pure x)
   | vis {α} {β} (x : m β) (f : β → NonDetT m α) :
       (∀ y, ExtractNonDet findable (f y)) → ExtractNonDet findable (.vis x f)
@@ -134,7 +134,7 @@ inductive ExtractNonDet (findable : {τ : Type u} -> (τ -> Prop) -> Type u) {m}
     (∀ x, ExtractNonDet findable (f x)) → ExtractNonDet findable (.pickCont PUnit p f)
 
 set_option linter.unusedVariables false in
-def ExtractNonDet.bind {findable : {τ : Type u} -> (τ -> Prop) -> Type u} :
+def ExtractNonDet.bind {findable : {τ : Type u} -> (τ -> Prop) -> Type w} :
   (_ : ExtractNonDet findable x) -> (_ : ∀ y, ExtractNonDet findable (f y)) -> ExtractNonDet findable (x >>= f)
   | .pure x, inst => by
     dsimp [Bind.bind, NonDetT.bind]; exact (inst x)
@@ -193,7 +193,7 @@ instance ExtractNonDet.ForIn_list {xs : List α} {init : β} {f : α → β → 
 variable [Monad m] [CCPOBot m] [CompleteBooleanAlgebra l] [MAlgOrdered m l] [MAlgDet m l] [LawfulMonad m]
 
 @[simp, inline]
-def NonDetT.extractGen {findable : {τ : Type u} -> (τ -> Prop) -> Type u} {α : Type u}
+def NonDetT.extractGen {findable : {τ : Type u} -> (τ -> Prop) -> Type w} {α : Type u}
   (findOf : ∀ {τ : Type u} (p : τ -> Prop), findable p -> Unit -> Option τ)
   : (s : NonDetT m α) -> (ex : ExtractNonDet findable s := by solve_by_elim) -> m α
   | .pure x, _ => Pure.pure x

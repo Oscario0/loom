@@ -9,6 +9,8 @@ import Loom.MonadAlgebras.WP.Gen
 import Loom.MonadAlgebras.WP.Liberal
 import Loom.MonadAlgebras.NonDetT'.Basic
 
+namespace MultiExtractor
+
 -- compared with `ExtractNonDet` in `NonDetT'`, just have the universe levels are tweaked a bit
 inductive ExtractNonDet (findable : {τ : Type u} -> (τ -> Prop) -> Type w) {m} : {α : Type u} -> NonDetT m α -> Type _ where
   | pure {α} : ∀ (x : α), ExtractNonDet findable (NonDetT.pure x)
@@ -77,7 +79,7 @@ instance PartialCandidates.of_Candidates {α : Type u} (p : α → Prop) [Candid
 
 instance (priority := high) {α : Type u} {p : α → Prop} [FinEnum α] [DecidablePred p] : Candidates p where
   find := fun _ => FinEnum.toList α |>.filter p
-  find_iff := by simp [Fintype.complete]
+  find_iff := by simp
 
 -- FIXME: `PartialCandidates` can be sampled. maybe add one such construction?
 
@@ -118,15 +120,18 @@ instance ExtractNonDet.assume' {p : Prop} [Decidable p] :
   dsimp [MonadNonDet.assume, NonDetT.assume]; apply ExtractNonDet.assume; assumption
   intro y; apply ExtractNonDet.pure
 
-macro "extract_step" : tactic =>
+macro "extract_list_step" : tactic =>
   `(tactic|
     first
       | eapply ExtractNonDet.bind
       | eapply ExtractNonDet.pure'
       | eapply ExtractNonDet.liftM
-      | eapply ExtractNonDet.pickList
       | eapply ExtractNonDet.assume'
+      | eapply ExtractNonDet.pickList
       | split )
+      -- the order matters!
 
-macro "extract_tactic" : tactic =>
-  `(tactic| repeat' (intros; extract_step <;> try dsimp))
+macro "extract_list_tactic" : tactic =>
+  `(tactic| repeat' (intros; extract_list_step <;> try dsimp))
+
+end MultiExtractor

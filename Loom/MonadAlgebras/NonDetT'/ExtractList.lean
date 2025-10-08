@@ -1,5 +1,7 @@
 import Loom.MonadAlgebras.NonDetT'.ExtractListBasic
 
+open MultiExtractor
+
 /-
 Let's infer what to do from the first principle.
 For now just assume the result type is `mr α`.
@@ -82,46 +84,6 @@ theorem pointwiseSup_alt {l : Type v} [CompleteBooleanAlgebra l] {α : Type u} (
   unfold pointwiseSup pointwiseSup'
   apply iSup_congr ; intro a
   by_cases h : a ∈ lis <;> simp [h]
-
-section what_do_we_want
-
-abbrev VeilExecM (ε ρ σ α : Type u) :=
-  ReaderT ρ (StateT σ (ExceptT ε DivM)) α
-  -- ρ → σ → DivM (Except ε (α × σ))
--- #simp [VeilExecM, ReaderT, StateT, ExceptT] (fun ε ρ σ α => VeilExecM ε ρ σ α)
--- to be applied to `α`
-abbrev VeilMultiExecM_ κ ε ρ σ α := ρ → σ → List (List κ × DivM (Except ε (α × σ)))
-
--- def NonDetT.extractGenList_VeilM {findable} {α : Type u}
---   (findOf : ∀ {τ : Type u} (p : τ → Prop), ExtCandidates findable κ p → Unit → List τ)
---   : (s : NonDetT (VeilExecM ε ρ σ) α) → (ex : ExtractNonDet (ExtCandidates findable κ) s := by solve_by_elim) →
---   VeilMultiExecM_ κ ε ρ σ α
---   | .pure x, _ => fun _ s => [([], DivM.res (Except.ok (x, s)))]
---   | .vis x f, .vis _ _ _ =>
---     fun r s =>
---       match x r s with
---       | DivM.res (Except.ok (y, s')) =>
---         extractGenList_VeilM findOf (f y) (by rename_i a ; exact a y) r s'
---       -- the following two cannot be merged into one case, due to return type mismatch
---       | DivM.div => [([], DivM.div)]
---       | DivM.res (Except.error e) => [([], DivM.res (Except.error e))]
---   | .pickCont _ p f, .pickSuchThat _ _ _ _ =>
---     fun r s =>
---       findOf p ‹_› () |>.flatMap fun x =>
---         let tmp := extractGenList_VeilM findOf (f x) (by rename_i a ; exact a x) r s
---         let x := ExtCandidates.rep _ _ (self := ‹_›) x
---         tmp.map fun (ks, y) => (x :: ks, y)
-
--- to prove what?
--- a state is a possible post state (w.r.t. two state transition) iff
--- it is in the result of execution;
--- (optional) and there exists a extractnondet that corresponds to the
--- prefix and gives the result (should be a corollary of some more general theorem)
-
--- if exception is in the result list, then (from wp only?)
--- if divergence is in the result list, then ...?
-
-end what_do_we_want
 
 section carrying_monad
 
@@ -409,11 +371,14 @@ instance [Monoid κ] : MonadFlatMapGo DivM (PeDivM κ) where
 instance : MonadPersistentLog κ (PeDivM κ) where
   log := PeDivM.log
 
+instance : MonadPersistentLog κ (PeDivM (List κ)) where
+  log := (PeDivM.log [·])
+
 instance [Monoid κ] : LawfulMonad (PeDivM κ) := by
   refine LawfulMonad.mk' _ ?_ ?_ ?_
   · introv ; simp [Functor.map, PeDivM.prepend] ; (repeat' split) <;> simp
-  · introv ; simp [bind, pure, PeDivM.prepend]
-  · introv ; simp [bind, pure, PeDivM.prepend] ; rcases x with ⟨k1, x | _⟩ <;> simp
+  · introv ; simp [bind, PeDivM.prepend]
+  · introv ; simp [bind, PeDivM.prepend] ; rcases x with ⟨k1, x | _⟩ <;> simp
     rcases f x with ⟨k2, y | _⟩ <;> simp
     rcases g y with ⟨k3, z | _⟩ <;> simp
     all_goals (congr! 1 ; ac_rfl)
@@ -431,6 +396,16 @@ instance [Monoid κ]
   μ_ord_bind {α} f g := by
     intro h x ; simp [Function.comp] ; repeat rw [PeDivM.bind_snd]
     apply MAlgOrdered.μ_ord_bind ; exact h
+
+theorem PeDivM.wp_eq_DivM
+  [Monoid κ]
+  [CompleteLattice l]
+  [inst : MAlgOrdered DivM l]
+  (x : PeDivM κ α) (post : α → l) :
+  wp x post = wp x.2 post := by
+  simp [wp, liftM, monadLift, MAlg.lift, Functor.map]
+  rcases x with ⟨k1, x⟩ ; simp [prepend, MAlgOrdered.μ]
+  cases x <;> rfl
 
 instance
   [Monoid κ]
@@ -798,7 +773,7 @@ instance
     simp [TsilTCore.op, pure, ExceptT.pure, ExceptT.mk, LawfulTsilTCore.pure_op, ExceptT.TsilTCore.go]
   op_assoc := by
     introv
-    simp [TsilTCore.op, bind, ExceptT.bind, ExceptT.mk]
+    simp [TsilTCore.op]
     have tmp := inst.op_assoc x (ExceptT.TsilTCore.go f) (ExceptT.TsilTCore.go g)
     trans ; apply tmp
     congr! 1 ; funext a-- ; rcases a with e | a <;> simp [ExceptT.TsilTCore.go]
@@ -865,12 +840,12 @@ instance [Monad m] [LawfulMonad m] [TsilTCore m]
   [LawfulTsilTCore m]
    : LawfulMonad (TsilT m) := by
   refine LawfulMonad.mk' _ ?_ ?_ ?_
-  · introv ; simp [Functor.map, pure]
+  · introv ; simp [Functor.map]
     induction x with
     | nil => simp
     | cons y xs ih => simp [ih] ; rw [LawfulTsilTCore.op_single] ; simp
   · introv ; simp [bind, pure] ; apply LawfulTsilTCore.pure_op
-  · introv ; simp [bind, pure] ; rw [List.flatMap_assoc]
+  · introv ; simp [bind] ; rw [List.flatMap_assoc]
     apply List.flatMap_congr ; intro x _ ; apply LawfulTsilTCore.op_assoc
 
 -- no, not clear at all
@@ -905,6 +880,26 @@ scoped instance
       apply sup_le_sup <;> try assumption
       -- simp only [bind, pointwiseSup, List.flatMap_singleton]
       apply LawfulTsilTCoreMAlgSup.sup ; assumption
+
+theorem TsilT.wp_eq
+  [Monad m]
+  [LawfulMonad m]
+  [TsilTCore m]
+  [CompleteLattice l]
+  [inst : MAlgOrdered m l]
+  [LawfulTsilTCore m]
+  [LawfulTsilTCoreMAlgSup m l] :
+  ∀ (a : TsilT m α) (post : α → l),
+    wp a post = pointwiseSup (wp · post) a := by
+    introv
+    -- TODO this pattern is recurring
+    simp [wp, liftM, monadLift, MAlg.lift, Functor.map, MAlgOrdered.μ]
+    unfold Function.comp ; simp [LawfulTsilTCore.op_single]
+    have tmp := List.flatMap_pure_eq_map (post <$> ·) a
+    unfold Function.comp at tmp ; simp [pure] at tmp
+    rw [tmp] ; clear tmp
+    unfold pointwiseSup ; rw [iSup_list_map]
+
 
 scoped instance --{m : Type u → Type v) (l : Type u)
   testtesttest
@@ -1049,10 +1044,10 @@ instance [Monoid κ] : LawfulTsilTCore (PeDivM κ) where
     introv ; simp [TsilTCore.op, bind]
     rcases x with ⟨k1, x | _⟩ <;> rfl
   pure_op := by
-    introv ; simp [TsilTCore.op, pure]
+    introv ; simp [TsilTCore.op]
     apply List.map_id'' ; rintro ⟨k1, x⟩ ; simp [PeDivM.prepend]
   op_assoc := by
-    introv ; simp [TsilTCore.op, bind]
+    introv ; simp [TsilTCore.op]
     rcases x with ⟨k1, x | _⟩ <;> try rfl
     dsimp
     rw [List.map_flatMap, List.flatMap_map]
@@ -1199,7 +1194,7 @@ scoped instance
    : LawfulMonadFlatMapGo m (TsilT m) l Eq where
   go_sound := by
     introv
-    simp [wp, liftM, monadLift, MAlg.lift, Functor.map, MAlgOrdered.μ, MonadFlatMapGo.go, pointwiseSup, TsilTCore.op]
+    simp [wp, liftM, monadLift, MAlg.lift, Functor.map, MAlgOrdered.μ, MonadFlatMapGo.go, pointwiseSup]
     unfold Function.comp ; simp [LawfulTsilTCore.op_single]
 
 #check LawfulMonadFlatMapGo
@@ -1220,7 +1215,7 @@ scoped instance
    : LawfulMonadFlatMapGo m (TsilT m') l p where
   go_sound := by
     introv
-    simp [wp, liftM, monadLift, MAlg.lift, Functor.map, MAlgOrdered.μ, MonadFlatMapGo.go, pointwiseSup, TsilTCore.op]
+    simp [wp, liftM, monadLift, MAlg.lift, Functor.map, MAlgOrdered.μ, MonadFlatMapGo.go, pointwiseSup]
     unfold Function.comp ; simp [LawfulTsilTCore.op_single]
     apply LawfulMonadFlatMapGo.go_sound
 
@@ -1459,220 +1454,6 @@ instance : Monoid (List κ) where
   one_mul := by introv ; rfl
   mul_one := by introv ; apply List.append_nil
 
-section what_do_we_want_again
-
--- NOTE: there are some attempts to switch between `ExceptT ε (TsilT m)` and `TsilT (ExceptT ε m)`
--- below; but due to the type dependence (e.g., `LawfulMonad` depends on `Monad`),
--- this switch might be troublesome.
--- so for now, let's first insist on one form, say `TsilT (ExceptT ε m)`.
-
--- def VeilExecM (ε : Type w) (ρ σ α : Type u) :=
---   -- ReaderT ρ (StateT σ (ExceptT ε DivM)) α
---   ρ → σ → DivM (Except ε (α × σ))
--- -- #simp [VeilExecM, ReaderT, StateT, ExceptT] (fun ε ρ σ α => VeilExecM ε ρ σ α)
--- -- to be applied to `α`
-abbrev VeilMultiExecM_' κ ε ρ σ α :=
-  ReaderT ρ (StateT σ (ExceptT ε (TsilT (PeDivM (List κ))))) α
-
-abbrev VeilMultiExecM_'' κ ε ρ σ α :=
-  -- NOTE: it has to be this, if we want an instance of `MonadFlatMap'`,
-  -- because we cannot construct it by having an instance for `ExceptT`!!
-  -- it must be inside some list.
-  -- conjecture: even if `TsilT` and `ExceptT` commute, things might not work out ...?
-  ReaderT ρ (StateT σ (TsilT (ExceptT ε (PeDivM (List κ))))) α
-  -- ρ → σ → List (List κ × DivM (Except ε (α × σ)))
-#check (rfl : VeilMultiExecM_' = VeilMultiExecM_)
-
-variable (ε ρ σ α : Type) (κ : Type q)
--- TODO universe problem, due to `MAlg`?
-#check inferInstanceAs (Monoid (List κ))
--- #check inferInstanceAs (Monad (VeilMultiExecM_' κ ε ρ σ))
-set_option trace.Meta.synthInstance.answer true in
-#check inferInstanceAs (MonadFlatMapGo (VeilExecM ε ρ σ) (VeilMultiExecM_' κ ε ρ σ))
-
-set_option trace.Meta.synthInstance.answer true in
-#check inferInstanceAs (MonadFlatMapGo (VeilExecM ε ρ σ) (VeilMultiExecM_'' κ ε ρ σ))
-
-#check
-  (rfl : (inferInstanceAs (MonadFlatMapGo (VeilExecM ε ρ σ) (VeilMultiExecM_' κ ε ρ σ)))
-  =
-  (inferInstanceAs (MonadFlatMapGo (VeilExecM ε ρ σ) (VeilMultiExecM_'' κ ε ρ σ))))
-
-set_option trace.Meta.synthInstance.answer true in
-open TotalCorrectness in
-#check fun (hd : ε → Prop) =>
-  let _ : IsHandler hd := ⟨⟩
-  -- inferInstanceAs (LawfulMonadFlatMapGo (VeilExecM ε ρ σ) (VeilMultiExecM_' κ ε ρ σ) (ρ → σ → Prop) Eq)
-  inferInstanceAs (MAlgOrdered (VeilExecM ε ρ σ) (ρ → σ → Prop))
-
-set_option trace.Meta.synthInstance.answer true in
-open AngelicChoice in
-open TotalCorrectness in
-#check fun (hd : ε → Prop) =>
-  let _ : IsHandler hd := ⟨⟩
-  inferInstanceAs (MAlgOrdered (VeilMultiExecM_' κ ε ρ σ) (ρ → σ → Prop))
-
-set_option trace.Meta.synthInstance.answer true in
-open AngelicChoice in
-open TotalCorrectness in
-#check fun (hd : ε → Prop) =>
-  let _ : IsHandler hd := ⟨⟩
-  inferInstanceAs (MAlgOrdered (VeilMultiExecM_'' κ ε ρ σ) (ρ → σ → Prop))
-
--- NOTE: this needs rewriting, unless given rewriting instance
--- set_option synthInstance.maxHeartbeats 1000 in
--- set_option trace.Meta.synthInstance.answer true in
--- set_option trace.Meta.synthInstance.instances true in
--- open AngelicChoice in
--- open TotalCorrectness in
--- #check fun (hd : ε → Prop) =>
---   let _ : IsHandler hd := ⟨⟩
---   inferInstanceAs (MAlgOrdered (VeilMultiExecM_'' κ ε ρ σ) (ρ → σ → Prop))
-
-set_option trace.Meta.synthInstance.answer true in
-open AngelicChoice in
-open TotalCorrectness in
-#check fun (hd : ε → Prop) =>
-  let _ : IsHandler hd := ⟨⟩
-  inferInstanceAs (LawfulMonad (VeilMultiExecM_' κ ε ρ σ))
-
-set_option trace.Meta.synthInstance.answer true in
-open AngelicChoice in
-open TotalCorrectness in
-#check fun (hd : ε → Prop) =>
-  let _ : IsHandler hd := ⟨⟩
-  inferInstanceAs (LawfulMonad (VeilMultiExecM_'' κ ε ρ σ))
-
-set_option trace.Meta.synthInstance.answer true in
-set_option trace.Meta.synthInstance.instances true in
-open AngelicChoice in
-open TotalCorrectness in
-#check fun (hd : ε → Prop) =>
-  let _ : IsHandler hd := ⟨⟩
-  inferInstanceAs (LawfulMonadFlatMapGo
-    -- (StateT σ (ExceptT ε DivM))
-    (VeilExecM ε ρ σ)
-    -- (StateT σ (ExceptT ε (TsilT (PeDivM (List κ)))))
-    (VeilMultiExecM_'' κ ε ρ σ)
-    -- (σ → Prop)
-    (ρ → σ → Prop)
-    -- (relLift <| relLift Eq)
-    Eq
-    )
-
--- NOTE: this is direct for `VeilMultiExecM_''` but not for `VeilMultiExecM_'`, see the reason above
-set_option trace.Meta.synthInstance.answer true in
-set_option trace.Meta.synthInstance.instances true in
-#check inferInstanceAs (MonadFlatMap' (VeilMultiExecM_'' κ ε ρ σ))
-
--- NOTE: some of these, together with the "switching instances" above,
--- seems to introduce discrepancies in instance resolution (i.e., not canonical)
--- CHECK this also seems to indicate that even for the same monad
--- (`TsilT (ExceptT ...))` vs `ExceptT (TsilT ...)`),
--- the instances might not be interchangeable!!!
-
--- instance : (MonadFlatMap' (VeilMultiExecM_' κ ε ρ σ)) := by
---   have tmp := inferInstanceAs (MonadFlatMap' (VeilMultiExecM_'' κ ε ρ σ))
---   exact tmp
-
--- instance : (Monad (TsilT (ExceptT ε (PeDivM (List κ))))) := by
---   have tmp := inferInstanceAs (Monad (ExceptT ε (TsilT (PeDivM (List κ)))))
---   exact tmp
-
--- instance : (Monad (VeilMultiExecM_'' κ ε ρ σ)) := by
---   have tmp := inferInstanceAs (Monad (VeilMultiExecM_' κ ε ρ σ))
---   exact tmp
-
--- instance : (LawfulMonad (TsilT (ExceptT ε (PeDivM (List κ))))) := by
---   have tmp := inferInstanceAs (LawfulMonad (ExceptT ε (TsilT (PeDivM (List κ)))))
---   exact tmp
-
--- instance : (LawfulMonad (VeilMultiExecM_'' κ ε ρ σ)) := by
---   have tmp := inferInstanceAs (LawfulMonad (VeilMultiExecM_' κ ε ρ σ))
---   exact tmp
-
--- instance [inst : (MAlgOrdered (ExceptT ε (TsilT (PeDivM (List κ)))) Prop)]
---   : (MAlgOrdered (TsilT (ExceptT ε (PeDivM (List κ)))) Prop) := inst
-
--- instance [inst : (MAlgOrdered (VeilMultiExecM_' κ ε ρ σ) (ρ → σ → Prop))]
---   : (MAlgOrdered (VeilMultiExecM_'' κ ε ρ σ) (ρ → σ → Prop)) := inst
-
--- set_option synthInstance.maxSize 256 in
--- set_option synthInstance.maxHeartbeats 100000 in
--- set_option trace.Meta.synthInstance.answer true in
--- set_option trace.Meta.synthInstance.instances true in
-set_option diagnostics true in
-open AngelicChoice in
-open TotalCorrectness in
-#check fun (hd : ε → Prop) =>
-  let _ : IsHandler hd := ⟨⟩
-  -- inferInstanceAs
-  --   (LawfulMonadFlatMapSup (TsilT (ExceptT ε (PeDivM (List κ)))) Prop Eq)
-  -- let tmp : (LawfulMonadFlatMapSup (TsilT (ExceptT ε (PeDivM (List κ)))) Prop Eq) :=
-  --   (@testtesttest (ExceptT ε (PeDivM (List κ))) Prop
-  --   (inferInstance)
-  --   (inferInstance)
-  --   (inferInstance)
-  --   (inferInstance)
-  --   (inferInstance))
-  inferInstanceAs
-    (LawfulMonadFlatMapSup
-      -- (TsilT (ExceptT ε (PeDivM (List κ))))
-      (VeilMultiExecM_'' κ ε ρ σ)
-      -- Prop
-      (ρ → σ → Prop)
-      -- Eq
-      (relLift <| relLift Eq)
-      )
-  -- inferInstanceAs (type_of% (@testtesttest (ExceptT ε (PeDivM (List κ))) Prop
-  --   (inferInstance)
-  --   (inferInstance)
-  --   (inferInstance)
-  --   (inferInstance)
-  --   (inferInstance)))
-  -- TODO why automatic inference does not work here?
-  -- inferInstanceAs (LawfulTsilTCoreMAlgSup (ExceptT ε (PeDivM (List κ))) Prop)
-  -- inferInstanceAs (LawfulMonadFlatMapSup
-  --   -- (StateT σ (ExceptT ε DivM))
-  --   -- (VeilExecM ε ρ σ)
-  --   -- (StateT σ (ExceptT ε (TsilT (PeDivM (List κ)))))
-  --   -- (VeilMultiExecM_'' κ ε ρ σ)
-  --   (TsilT (ExceptT ε (PeDivM (List κ))))
-  --   Prop
-  --   -- (σ → Prop)
-  --   -- (ρ → σ → Prop)
-  --   -- (relLift <| relLift Eq)
-  --   Eq
-  --   )
-
-set_option trace.Meta.synthInstance.answer true in
-set_option trace.Meta.synthInstance.instances true in
-#check inferInstanceAs (MonadPersistentLog (List κ) (VeilMultiExecM_'' κ ε ρ σ))
-
--- well, this is ...
-open AngelicChoice in
-open TotalCorrectness in
-noncomputable
-instance
-  {hd : ε → Prop}
-  [IsHandler hd]
-  : LawfulMonadPersistentLog (List κ) (VeilMultiExecM_'' κ ε ρ σ) (ρ → σ → Prop) where
-  log_sound := by
-    introv
-    simp [wp, liftM, monadLift, MAlg.lift, Functor.map, MAlgOrdered.μ,
-      StateT.map, ExceptT.map, ExceptT.mk, TsilTCore.op, PeDivM.prepend_snd_same,
-      MonadPersistentLog.log, MonadLift.monadLift, StateT.lift, ExceptT.lift, PeDivM.log,
-      PeDivM.prepend, ExceptT.TsilTCore.go, pure, bind, ExceptT.pure]
-    ext a b
-    simp [pointwiseSup, OfHd, MAlgExcept, MAlgOrdered.μ, Functor.map, PeDivM.prepend, Except.getD]
-    simp [LE.pure]
-
--- #check inferInstanceAs (MonadLiftT (VeilExecM ε ρ σ) (VeilMultiExecM_' κ ε ρ σ))
--- TODO how to relate the original monad to the new one? `lift` might not be a very good approach
--- #check inferInstanceAs (MonadLiftT (ExceptT ε DivM) (ExceptT ε (TsilT (PeDivM (List κ)))))
-
-end what_do_we_want_again
-
 section test
 
 open Lean.Order
@@ -1682,7 +1463,9 @@ open Lean.Order
 -- abbrev ArrayTraceT κ m := StateT (Array κ) m
 
 -- variable [Monad m] /- [Lean.MonadBacktrack s m] -/ -- [MonadRepFun m m' s]
-variable (m' : /- Type w → -/ Type u → Type v)
+variable
+  (κ : Type q)
+  (m' : /- Type w → -/ Type u → Type v)
   -- [inst1 : Monad (ListT m')]
   -- [inst2 : MonadLiftT m (ListT m')]
   -- -- [inst1 : Monad (ListT (ArrayTraceT κ m'))]
@@ -1748,13 +1531,13 @@ def NonDetT.extractGenList {findable} {α : Type u} -- {κ}
 
 def NonDetT.extractList {α : Type u} (s : NonDetT m α)
   (ex : ExtractNonDet (ExtCandidates Candidates κ) s) : m' α :=
-  NonDetT.extractGenList m'
+  NonDetT.extractGenList κ m'
     (fun p (ec : ExtCandidates Candidates κ p) => ec.core.find)
     s ex
 
 def NonDetT.extractPartialList {α : Type u} (s : NonDetT m α)
   (ex : ExtractNonDet (ExtCandidates PartialCandidates κ) s) : m' α :=
-  NonDetT.extractGenList m'
+  NonDetT.extractGenList κ m'
     (fun p (ec : ExtCandidates PartialCandidates κ p) => ec.core.find)
     s ex
 
@@ -1779,7 +1562,7 @@ theorem ExtractNonDet.extract_list_refines_wp
   (findOf_sound : ∀ {τ : Type u} (p : τ → Prop) (ec : ExtCandidates findable κ p) x,
     x ∈ findOf p ec () → p x)
   (ex : ExtractNonDet (ExtCandidates findable κ) s) :
-  wp (s.extractGenList m' findOf ex) post ≤ wp s post := by
+  wp (s.extractGenList κ m' findOf ex) post ≤ wp s post := by
   induction ex with
   | pure x => simp [NonDetT.extractGenList, wp_pure]
   | vis x f g ih =>
@@ -1816,15 +1599,15 @@ theorem ExtractNonDet.wp_refines_extract_list
   (findOf_complete : ∀ {τ : Type u} (p : τ → Prop) (ec : ExtCandidates findable κ p) x,
     p x → x ∈ findOf p ec ())
   (ex : ExtractNonDet (ExtCandidates findable κ) s) :
-  wp s post ≤ wp (s.extractGenList m' findOf ex) post := by
+  wp s post ≤ wp (s.extractGenList κ m' findOf ex) post := by
   induction ex with
-  | pure x => simp [NonDetT.extractList, wp_pure]
+  | pure x => simp [NonDetT.extractGenList, wp_pure]
   | vis x f g ih =>
-    simp [NonDetT.wp_vis, NonDetT.extractList, wp_bind]
+    simp [NonDetT.wp_vis, NonDetT.extractGenList, wp_bind]
     have tmp := instl.go_sound _ x --post
     trans ; (on_goal 2=> apply tmp) ; apply wp_cons ; aesop (add norm inf_comm)
   | pickSuchThat τ p f cd ih =>
-    simp only [NonDetT.wp_pickCont, NonDetT.extractList, NonDetT.extractGenList]
+    simp only [NonDetT.wp_pickCont, NonDetT.extractGenList, NonDetT.extractGenList]
     rename_i extcd
     -- have htmp := Candidates.find_iff (self := extcd.core)
     -- generalize (Candidates.find p (self := extcd.core) ()) = lis at htmp ⊢
@@ -1844,7 +1627,7 @@ theorem ExtractNonDet.extract_list_eq_wp
   [instl2 : LawfulMonadFlatMapSup m' l Eq]
   (s : NonDetT m α)
   (ex : ExtractNonDet (ExtCandidates Candidates κ) s) :
-  wp s post = wp (s.extractList m' ex) post := by
+  wp s post = wp (s.extractList κ m' ex) post := by
   apply le_antisymm
   · apply ExtractNonDet.wp_refines_extract_list
     introv ; rw [Candidates.find_iff (self := ec.core)] ; exact id
@@ -1854,18 +1637,6 @@ theorem ExtractNonDet.extract_list_eq_wp
 end AngelicChoice
 
 end test
-
-section put_together
-
-open AngelicChoice TotalCorrectness in
-theorem VeilM.extract_list_eq_wp
-  (s : NonDetT (VeilExecM ε ρ σ) α)
-  (ex : ExtractNonDet (ExtCandidates Candidates (List κ)) s)
-  (hd : ε → Prop) [IsHandler hd] :
-  wp s post = wp (s.extractList (VeilMultiExecM_'' κ ε ρ σ) ex) post := by
-  apply ExtractNonDet.extract_list_eq_wp
-
-end put_together
 
 #exit
 
