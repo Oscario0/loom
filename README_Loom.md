@@ -32,11 +32,13 @@ and 16GB of RAM. We recommend running this artifact on a machine with at least
 
 To build the artifact, you need [VSCode](https://code.visualstudio.com) and
 [Lean 4 VSCode extension](https://marketplace.visualstudio.com/items?itemName=leanprover.lean4)
-installed. Their installation is straightforward and do not require any special
+installed. Their installation is straightforward and does not require any special
 knowledge.
 
-You will also need [cvc5](https://github.com/cvc5/cvc5) installed and available
-on your PATH to run Velvet examples. To do this, you will need to:
+You will also need [cvc5](https://github.com/cvc5/cvc5) installed (we tested
+using version 1.3.1) and available on your PATH to run Velvet examples. To do
+this, you will need to:
+
 - download an appropriate static version for your OS and processor from
   [this page](https://github.com/cvc5/cvc5/releases)
 - find executable `cvc5` under `bin/` subdirectory of the downloaded archive
@@ -347,11 +349,10 @@ directory
   and distributed protocols respectively.
 - **(Dependencies)** The only dependencies are
   - Lean 4 itself
-  - Lean 4 Mathlib
-  - `lean-auto` for proof automation README provides instructions on Lean 4
-    VSCode extension installation. Mathlib and `lean-auto` will be installed by
-    VSCode extension automatically. `cvc5` solver installation (needed for
-    Velvet examples) is also described in the README.
+  - Lean 4 Mathlib and `lean-auto` for proof automation, automatically
+  installed when building Loom
+  - `cvc5`, whose installation process is described in the README
+
 - **(Proof completeness)** Proofs do not depend on `sorry` or `admit` and are
   accepted by Lean 4.
 
