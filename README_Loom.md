@@ -184,6 +184,33 @@ Section 5 of the paper outlines the mechanism to define partial functions in Lea
 
 ### Section 6. Specifying and Executing Non-Deterministic Computations
 
+### Section 7. Combining Runtime and Deductive Verification of Distributed Protocols
+
+Note for artifact reviewers: `CanRaise` in the paper submission is named
+`IgnoreEx` in the source (and will appear as such in the camera-ready paper).
+Similarly, `VeilM.canRaise` has been renamed `VeilM.succeedsWhenIgnoring`.
+
+Section 7 describes how Veil uses Loom. In particular:
+
+* [`Theory/Defs.lean`](./Veil/Veil/Theory/Defs.lean#L49) shows the definition of
+  `VeilM` in Figure 9 (in the source, `VeilExecM` is _not_ inlined), and
+  [lines 62-65](./Veil/Veil/Theory/Defs.lean#L62) show the different semantic
+  interpretations
+  * [`succeedsWhenIgnoring`](./Veil/Veil/Theory/Defs.lean#L151) uses the
+    [`IgnoreEx`](./Veil/Veil/Theory/Defs.lean#L65) semantics,
+    [`meetsSpecificationIfSuccessful`](./Veil/Veil/Theory/Defs.lean#L87) uses
+    [`DemonSucc`](./Veil/Veil/Theory/Defs.lean#L62) semantics and
+    [`toTwoState`](./Veil/Veil/Theory/Defs.lean#L106) uses
+    [`AngelFail`](./Veil/Veil/Theory/Defs.lean#L64) semantics
+
+* [Examples/NOPaxos/NOPaxosExecutable.lean](./Veil/Examples/NOPaxos/NOPaxosExecutable.lean)
+  is the NOPaxos implementation in Section 7.2
+  * Fig. 10(a) contains a selection from
+    [lines 9-50](./Veil/Examples/NOPaxos/NOPaxosExecutable.lean#L9) and Fig.
+    10(b) corresponds to
+    [lines 112-119](./Veil/Examples/NOPaxos/NOPaxosExecutable.lean#L112)
+  * The simulation procedure (lines 1006-1017 in the paper submission) can be found in [`Veil/Examples/NOPaxos/NOPaxosTest.lean`](./Veil/Examples/NOPaxos/NOPaxosTest.lean#L53)
+
 ## Structure and Contents
 
 - `popl26-artifact.ova.zip` - archive with VM setup view in VSCode. Password is
