@@ -2,93 +2,153 @@
 
 [POPL'26 submission #695](https://popl26.hotcrp.com/paper/695)
 
-Loom is a framework for producing foundational multi-modal verifiers. It
-provides:
+Loom is a framework for producing foundational multi-modal verifiers, embedded
+in [Lean 4](https://lean-lang.org/). Loom provides _semantics_ for monadic
+computations in Lean using a stack of monad transformers, with support for
+non-determinism, angelic and demonic choice, state, exceptions, and divergence.
 
-* Automated weakest precondition generation
-* Executable semantics
-* Semantics for non-determinism
-* Ready-to-use sample verifiers for imperative code with automated and
-  interactive proofs
+The core technical innovation of Loom is the concept of _ordered monad
+transformer algebras_, which lets Loom give correct-by-construction axiomatic
+(weakest precondition) and operational (execution) semantics for any
+computation expressed in terms of any monad obtained by stacking Loom's monad
+transformers.
 
-Loom is based on the monadic shallow embedding of an executable program
-semantics into the [Lean 4 proof assistant](https://lean-lang.org/).
+We have used Loom to build three verifiers embedded in Lean:
 
-For automated weakest precondition generation, Loom uses Monad Transformer
-Algebras.
+* **Cashmere** — a toy verifier to demonstrate the framework
+* **Velvet** — a Dafny-like verifier for an imperative language
+* **Veil** — a verifier for distributed protocol specifications
 
-Loom is licensed under the
-[Apache 2.0 license](https://www.apache.org/licenses/LICENSE-2.0) and is
-available on GitHub at
-[github.com/verse-lab/loom](https://github.com/verse-lab/loom).
+These verifiers provide both SMT-based proof automation and interactive proofs
+using Lean tactics.
+
+Loom is licensed under the [Apache 2.0
+license](https://www.apache.org/licenses/LICENSE-2.0) and is available on
+GitHub at [github.com/verse-lab/loom](https://github.com/verse-lab/loom).
+The Cashmere and Velvet verifiers are distributed together with Loom.
+
+Veil, which is distributed separately, is also licensed under the [Apache 2.0
+license](https://www.apache.org/licenses/LICENSE-2.0) and is available on
+GitHub at
+[https://github.com/verse-lab/veil](https://github.com/verse-lab/veil).
+
+The versions of Loom and Veil used in the artifact are on the `popl26-artifact`
+branches of the respective repositories. The Zenodo link is
+https://doi.org/10.5281/zenodo.17331921.
 
 ## Requirements
 
-We have tested this artifact on:
-- `arm64` MacBook Air 2022 with an M2 processor and 16GB of RAM. 
-- `amd64` HP Laptop 15-db1xxx 2019 with AMD Ryzen 5 3500U and 16GB of RAM. We
-  recommend running this artifact on a machine with at least 16GB of RAM. We are
-  also providing a VM with Xubuntu 20.04.4 64bit for testing on `amd64`.
-  Password for VM is `osboxes.org`.
+For the purposes of artifact evaluation, we provide both a source-code ZIP file
+for Loom and Veil, as well as a Linux `amd64` virtual machine image (OVA).
 
-## Build and Setup
+**We recommend reviewers use the virtual machine for evaluation.** It suffices to evaluate _either_ ZIP file _or_ the VM; you DO NOT have to
+evaluate both.
 
-To build the artifact, you need [VSCode](https://code.visualstudio.com) and
-[Lean 4 VSCode extension](https://marketplace.visualstudio.com/items?itemName=leanprover.lean4)
-installed. Their installation is straightforward and does not require any special
-knowledge.
+**For the OVA file, an `amd64` machine with Virtual Box installed (7.1 or later
+recommended) and at least 16GB of RAM is required.**
 
-You will also need [cvc5](https://github.com/cvc5/cvc5) installed (we tested
-using version 1.3.1) and available on your PATH to run Velvet examples. To do
-this, you will need to:
+For the ZIP file, the following platforms are supported:
 
-- download an appropriate static version for your OS and processor from
-  [this page](https://github.com/cvc5/cvc5/releases)
-- find executable `cvc5` under `bin/` subdirectory of the downloaded archive
-- ensure that this executable is now on your path
+* Mac OS with Apple Sillicon (`arm64`)
+* Linux on `amd64`
+
+Your machine should have at least 16GB of RAM.
+
+### Tested Machines
+
+We have tested the OVA image on:
+
+* `amd64` ThinkPad X1 Carbon with a Intel core i7-1370P processor and 64 GB of
+RAM
+* `amd64` HP Laptop 15-db1xxx 2019 with AMD Ryzen 5 3500U and 16GB of RAM.
+
+We tested the ZIP file on the above machines, as well as an `arm64` MacBook Air
+2022 with an M2 processor and 16GB of RAM and an `arm64` MacBook Pro 2024 with
+an M4 processor and 64GB of RAM.
+
+## Artifact Evaluation Instructions
+
+**As mentioned above, we recommend reviewers use the OVA virtual machine image
+for evaluation.** (We also provide instructions for evaluating the ZIP file artifact, but do not recommend this approach.)
+
+### (1) Set-Up Dependencies
+
+#### Virtual Box OVA image
+
+Download and install Virtual Box from
+[here](https://www.virtualbox.org/wiki/Downloads). We recommend using version
+7.1 or later.
+
+Download the OVA image from Zenodo and import it into Virtual Box by
+double-clicking on the OVA file (or by using the `File` -> `Import
+Appliance...` menu item) in Virtual Box.
+
+#### Source Code ZIP file
+
+To build and run the artifact from the source code archive, you need
+[VSCode](https://code.visualstudio.com) with the [Lean 4 VSCode
+extension](https://marketplace.visualstudio.com/items?itemName=leanprover.lean4)
+installed.
+
+You will also need [cvc5](https://github.com/cvc5/cvc5) (v1.3.1 recommended)
+installed and available on your `PATH` to run Velvet examples. See below for
+detailed instructions on installing CVC5.
+
+<details close> <summary><strong>Installing CVC5</strong></summary>
+
+To install CVC5, you will need to:
+
+* Download a static version for your OS and processor from [this
+page](https://github.com/cvc5/cvc5/releases):
+  * [`cvc5-macOS-arm64-static.zip`](https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.1/cvc5-macOS-arm64-static.zip)
+  * [`cvc5-Linux-x86_64-static.zip`](https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.1/cvc5-Linux-x86_64-static.zip)
+* Find executable `cvc5` under `bin/` subdirectory of the downloaded archive
+* Ensure that this executable is now on your `PATH`
   for MacOS/Linux
   ```bash
-  sudo mv /path/to/cvc5 /usr/local/bin
+  sudo mv /path/to/archive/bin/cvc5 /usr/local/bin
   ```
-  check: 
+* Check that CVC5 is installed correctly and on your `PATH` by running:
   ```bash
   cvc5 --version
   ```
   The command above should output `cvc5`'s version and additional information.
 
-After verifying that `cvc5` is available, you can open artifact folder in VSCode
-and open any Lean file. Press Lean symbol at the top right and then
-`Toggle InfoView`. You might need to press `Restart File` button in Lean
-InfoView to see the result.
+</details>
 
-**IMPORTANT** Note that first run (Lean 4 installation) and following build
-(after restarting the file) might take some time, usually less than 20 minutes.
+### (2) Kick the Tires Evaluation
 
-After building, you will be able to inspect Lean 4 files and InfoView freely.
+To check that you can build and run the artifact, follow these steps:
 
-### Common Problems
+#### Virtual Box OVA image
 
-- on the first run, you might need to install `elan`. If prompted by VSCode,
-  agree to installation.
-- You might be requested to update `smt` dependency. To do so, in your terminal:
-  - change directory to the `Loom` subdirectory of this artifact 
-  - type
-    ```bash
-    lake update smt
-    ```
-  - reopen VSCode and artifact folder in VSCode
-- If build fails, try to:
-  - close VSCode
-  - in your terminal, change directory to the `Loom` subdirectory of this
-    artifact
-  - type
-    ```bash
-    lake clean
-    lake exe cache get
-    lake build
-    ```
-    in your terminal
-  - reopen VSCode and artifact folder
+1. Start the VM in Virtual Box.
+2. Login as user `loom` with password `popl26`.
+3. Open VS Code in the VM and open the artifact folder by clicking on "File ->
+Open Folder..." and selecting the artifact folder (which includes the `Loom`
+and `Veil` directories) in the `loom` user's home directory.
+4. Open `Loom/CaseStudies/Velvet/VelvetExamples/Examples_Total.lean`, press the
+Ctrl+Shift+B and select "Lean 4 Server: Restart File".
+
+#### Source Code ZIP file
+
+1. Download the source code ZIP archive [from
+Zenodo](https://doi.org/10.5281/zenodo.17331921) and unzip it.
+
+2. In VS Code, open the artifact folder by clicking on "File -> Open Folder..."
+and selecting the artifact folder (which includes the `Loom` and `Veil`
+directories).
+
+3. Open any Lean file (e.g. `Loom/Basic.lean`) and the Lean VS Code extension
+will prompt you to install dependencies (`git` and `elan`) if you don't already
+have them on your machine.
+
+4. Open `Loom/CaseStudies/Velvet/VelvetExamples/Examples_Total.lean` and build
+the file by pressing Cmd+Shift+B (Mac) or Ctrl+Shift+B (Windows/Linux) and
+selecting "Lean 4 Server: Restart File".
+
+**IMPORTANT** The first run (Lean 4 installation) and the build (after
+restarting the file) takes around 20 minutes on a typical machine.
 
 ## Structure and Contents
 
