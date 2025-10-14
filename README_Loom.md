@@ -184,6 +184,21 @@ Section 5 of the paper outlines the mechanism to define partial functions in Lea
 
 ### Section 6. Specifying and Executing Non-Deterministic Computations
 
+Section 6 of the paper provides an approach on how to encode effects with
+non-determinism in Loom.
+Section also explains the mechanism
+for executing programs with non-determinism effects and its soundness using `Findable` typeclass.
+- [`Extract`](./Loom/MonadAlgebras/NonDetT/Extract.lean#L126) datatype from
+  Fig.8(a) represents a witness for execution of non-determinism.
+- [`NonDetT.run`](./Loom/MonadAlgebras/NonDetT/Extract.lean#L210) function from
+  Fig.8(b) enables execution of programs with non-determinism.
+- [Theorem 6.1](./Loom/MonadAlgebras/NonDetT/Extract.lean#L431) proves that the
+  implemented execution is sound.
+- [`NonDetT.prop`](./Loom/MonadAlgebras/NonDetT/Extract.lean#L254) uses
+  [Weakest Liberal Preconditions](./Loom/MonadAlgebras/WP/Liberal.lean#L38) to
+  ensure "reachability" concept needed for sound execution.
+
+
 ### Section 7. Combining Runtime and Deductive Verification of Distributed Protocols
 
 Note for artifact reviewers: `CanRaise` in the paper submission is named
@@ -210,6 +225,16 @@ Section 7 describes how Veil uses Loom. In particular:
     10(b) corresponds to
     [lines 112-119](./Veil/Examples/NOPaxos/NOPaxosExecutable.lean#L112)
   * The simulation procedure (lines 1006-1017 in the paper submission) can be found in [`Veil/Examples/NOPaxos/NOPaxosTest.lean`](./Veil/Examples/NOPaxos/NOPaxosTest.lean#L53)
+
+### Section 8. Combining Automated and Interactive Proofs in a Dafny-Style Verifier
+
+Section 8 of the paper gives an overview for implementation of Dafny-like verifier based on Loom - Velvet.
+In Velvet, the user can: 
+- test programs before attempting verification (see an [example](./CaseStudies/Velvet/VelvetExamples/Examples.lean#L102))
+- separately prove functional correctness and termination using [`partial_total_split`](./CaseStudies/Velvet/VelvetTheory.lean#L181) theorem (see an [example](./CaseStudies/Velvet/VelvetExamples/Total_Partial_example.lean#L127))
+- combine automated SMT-based proofs and manual Lean 4 proofs (see an [example](./CaseStudies/Velvet/VelvetExamples/Examples_Total.lean#L142))
+- use Lean 4 Mathlib to prove complex program specifications and reuse triples produced automatically (see an [example](./CaseStudies/Velvet/VelvetExamples/SpMSpV_Example.lean#L764))
+
 
 ## Structure and Contents
 
