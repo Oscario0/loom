@@ -150,6 +150,51 @@ selecting "Lean 4 Server: Restart File".
 **IMPORTANT** The first run (Lean 4 installation) and the build (after
 restarting the file) takes around 20 minutes on a typical machine.
 
+## List of claims
+
+Here were list pointers to the implementations of results mentiones in each section of the paper.
+
+### Section 2. Overview
+
+Section 2 of the paper presents Cashmere: a toy imperative WHILE-style language to deal for implementing simple monetary operations. We implement Cashmere in `Loom/CaseStudies/Cashmere/`. In particular:
+
+- All the case studies programs from Sections 2.1-2.7 of the paper can be found in [`./Loom/CaseStudies/Cashmere/`](./CaseStudies/Cashmere/Cashmere.lean) in the correspondent order. 
+- The incorrectness proof from Section 2.8 is located in [`./Loom/CaseStudies/Cashmere/`](./CaseStudies/Cashmere/CashmereIncorrectnessLogic.lean). We put it in a different file as it requires a different instance of Monad Algebra. 
+
+### Section 3. Deriving Verifiers via Monad Transformer Algebras
+
+Section 3 of the paper outlines the main theoretical contributions of the paper. More specifically here we develop a metatheory for subclass of Dijkstra Monads allowing for "push-button" derivation of generators of Floyd-Hoare-style verifi-cation conditions. Novel contributions of the work starts with Section 3.3 of the paper where we introduce Monad Algebras and is reflected in the artifact in the following way:
+
+1. [`MAlg`](./Loom/MonadAlgebras/Defs.lean#L51) type class implements Definition 3.1 of Monad Algebra
+2. [`MAlgOrdered`](./Loom/MonadAlgebras/Defs.lean#L74-L75) type class implements Definition 3.2 of Monad Algebra. The relation between these two type classes is established via [`OfMAlgPartialOrdered`](./Loom/MonadAlgebras/Defs.lean#L82)
+
+Key claims made in the paper are:
+- It is possible to use Loom to build verifiers embedded in Lean 4 Proof Assistant (Section 2.8)
+- Theorem 3.3 from Section 3.3: WP is defined as `wp` on line 19 of
+  `Loom/Loom/MonadAlgebras/WP/Basic.lean` defined via `MAlg.lift` on lines 58-59
+  of `Loom/Loom/MonadAlgebras/Defs.lean` by instance in lines 61-62 of
+  `Loom/Loom/MonadAlgebras/Defs.lean`, then lemmas for `wp` are proven in file
+  `Loom/Loom/MonadAlgebras/WP/Basic.lean`
+  - (4) on lines 25-27
+  - (5) on lines 39-41
+  - (9) on lines 48-52
+- Definition 3.4 (Monad Transformer Algebra) on lines 624-629 Fig.5 (Page 14)
+  corresponds to lines 193-199 in file `Loom/Loom/MonadAlgebras/Defs.lean`
+- Modeling of divergent computations from Section 5 of the paper is implemented
+  for `DivM` monad in file `Loom/Loom/MonadAlgebras/Instances/Basic.lean`
+- Implementation of Non-Determinism Transformer from Section 6 is implemented in
+  files `Loom/Loom/MonadAlgebras/NonDetT/Basic.lean` and
+  `Loom/Loom/MonadAlgebras/NonDetT'/Basic.lean`. Execution of programs with
+  Non-Determinism and its soundness (Section 6.2) is implemented in files
+  `Loom/Loom/MonadAlgebras/NonDetT/Extract.lean` and
+  `Loom/Loom/MonadAlgebras/NonDetT'/Extract.lean`
+- Velvet verifier (Section 8) implementation is at `Loom/CaseStudies/Velvet`
+  folder. 
+  - Proof of lemma `partial_total_split` (Section 8.1) can be found on lines
+    181-190 in file `Loom/CaseStudies/Velvet/VelvetTheory.lean` under the name
+    `VelvetM.total_decompose_triple`.
+  - Example using this: `Loom/CaseStudies/Velvet/VelvetExamples/Total_Partial_example.lean`
+
 ## Structure and Contents
 
 - `popl26-artifact.ova.zip` - archive with VM setup view in VSCode. Password is
