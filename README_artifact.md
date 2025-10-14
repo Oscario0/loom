@@ -162,6 +162,10 @@ restarting the file) takes around 20 minutes on a typical machine.
 Go through the list of claims in the next section and visually inspect the code
 associated with each claim, as needed.
 
+We recommend opening this README file in VS Code in the virtual machine (or on
+your own computer). You can directly click on the links in the README (cmd +
+click) to open the relevant file in a separate VS Code tab.
+
 ## List of claims
 
 Here were list pointers to the implementations of results mentiones in each
