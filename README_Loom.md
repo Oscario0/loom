@@ -198,7 +198,6 @@ for executing programs with non-determinism effects and its soundness using `Fin
   [Weakest Liberal Preconditions](./Loom/MonadAlgebras/WP/Liberal.lean#L38) to
   ensure "reachability" concept needed for sound execution.
 
-
 ### Section 7. Combining Runtime and Deductive Verification of Distributed Protocols
 
 Note for artifact reviewers: `CanRaise` in the paper submission is named
