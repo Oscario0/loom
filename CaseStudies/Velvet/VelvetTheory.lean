@@ -191,6 +191,13 @@ lemma VelvetM.total_decompose_triple {α : Type} {pre : Prop} {post : α -> Prop
     simp [loomLogicSimp, postcondition, termination] at decomp
     exact decomp
 
+/- We need to parameterize `VelvetM.extract` by
+  `[∀ α, Lean.Order.CCPO (DivM α)] [Lean.Order.MonoBind DivM]` because otherwise
+  it will infer noncomputable  `instCCPODivM` instance on the definition level,
+  which will make `VelvetM.extract` `noncomputable`. So we would not be able to
+  `#eval` it. With these parameters, `instCCPODivM` will be inferred on the
+  level of `#eval` and because of some special support for partial fixpoints in
+  `#eval`, it will be able to compute the result. -/
 def VelvetM.extract {α : Type} (x : VelvetM α)
   [∀ α, Lean.Order.CCPO (DivM α)] [Lean.Order.MonoBind DivM] [Inhabited α] : α :=
   x.run.run

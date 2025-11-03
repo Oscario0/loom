@@ -54,8 +54,8 @@ method insertionSort(arr: array<int>)
 method insertionSort_total
   (mut arr: Array Int) return (u: Unit)
   require 1 ≤ arr.size
-  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arrNew[i]! ≤ arrNew[j]!
-  ensures arr.toMultiset = arrNew.toMultiset
+  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arr[i]! ≤ arr[j]!
+  ensures arrOld.toMultiset = arr.toMultiset
   do
     let arr₀ := arr
     let arr_size := arr.size

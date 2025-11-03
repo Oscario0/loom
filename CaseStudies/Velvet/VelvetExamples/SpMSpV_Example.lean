@@ -70,8 +70,8 @@ method VSpV
   (mut out: Array Int)
   (arr: Array Int)
   (spv: SpV Int) return (u: Unit)
-  ensures outNew.size = 1
-  ensures outNew[0]! = sumUpTo spv arr (spv.size)
+  ensures out.size = 1
+  ensures out[0]! = sumUpTo spv arr (spv.size)
   do
     let mut ind := 0
     out := Array.replicate 1 0
@@ -93,8 +93,8 @@ method spmv
   (mut out: Array Int)
   (arr: Array Int) (spv: SpV Int)
   (spm : Array (SpV Int)) return (u : Unit)
-  ensures spm.size = outNew.size
-  ensures ∀ i < spm.size, outNew[i]! = sumUpTo spm[i]! arr spm[i]!.size
+  ensures spm.size = out.size
+  ensures ∀ i < spm.size, out[i]! = sumUpTo spm[i]! arr spm[i]!.size
   do
     out := Array.replicate spm.size 0
     let mut arrInd : Array Nat := Array.replicate spm.size 0
@@ -136,8 +136,8 @@ method SpVSpV
   (mut out: Array Int)
   (spv1: SpV Int)
   (spv2: SpV Int) return (u: Unit)
-  ensures outNew.size = 1
-  ensures outNew[0]! = spv_dot spv1 spv2 0 0
+  ensures out.size = 1
+  ensures out[0]! = spv_dot spv1 spv2 0 0
   do
     out := Array.replicate 1 0
     let mut pnt1 := 0
@@ -164,8 +164,8 @@ method SpMSpV
   (mut out: Array Int)
   (spm: Array (SpV Int))
   (spv: SpV Int) return (u: Unit)
-  ensures outNew.size = spm.size
-  ensures ∀ i < spm.size, outNew[i]! = spv_dot spm[i]! spv 0 0
+  ensures out.size = spm.size
+  ensures ∀ i < spm.size, out[i]! = spv_dot spm[i]! spv 0 0
   do
     out := Array.replicate spm.size 0
     let mut spmInd := Array.replicate spm.size 0
@@ -370,14 +370,14 @@ theorem VSpV_correct_triple (out: Array Int) (arr: Array Int) (spv: SpV Int):
   triple
     (∀ i < spv.size, spv.ind[i]! < arr.size)
     (VSpV out arr spv)
-    fun ⟨_, ⟨outNew, PUnit.unit⟩⟩ =>
+    fun ⟨_, outNew⟩ =>
       outNew[0]! = ∑ i ∈ Finset.range (arr.size), spv[i] * arr[i]! := by
       simp [triple]
       intro h_b
       apply wp_cons (VSpV out arr spv)
-        fun ⟨u, ⟨outNew, PUnit.unit⟩⟩ =>
+        fun ⟨u, outNew⟩ =>
           (outNew[0]! = sumUpTo spv arr spv.size ∧ outNew.size = 1)
-      { rintro ⟨u, ⟨outNew⟩⟩; simp
+      { rintro ⟨u, outNew⟩; simp
         intro sum_eq sz
         exact VSpV_correct_pure outNew arr spv h_b sz sum_eq }
       simp
@@ -390,15 +390,15 @@ theorem spmv_correct_triple (out: Array Int) (arr: Array Int) (spm: Array (SpV I
   triple
     (∀ i < spm.size, ∀ j < spm[i]!.size, spm[i]!.ind[j]! < arr.size)
     (spmv out arr spv spm)
-    fun ⟨_, ⟨outNew, _⟩⟩ =>
+    fun ⟨_, outNew⟩ =>
       (∀ j < outNew.size, outNew[j]! = ∑ i ∈ Finset.range (arr.size), spm[j]![i] * arr[i]!) := by
       simp [triple]
       intro h_b
       apply wp_cons
         (spmv out arr spv spm)
-        fun ⟨_, ⟨outNew, _⟩⟩ =>
+        fun ⟨_, outNew⟩ =>
           ((∀ i < spm.size, outNew[i]! = sumUpTo spm[i]! arr spm[i]!.size) ∧ spm.size = outNew.size)
-      { simp; rintro ⟨_, ⟨outNew⟩⟩; simp
+      { simp; rintro outNew;
         intro sum_eq sz_eq j h_j
         have single_elem : (Array.replicate 1 outNew[j]!)[0]! = outNew[j]! := by
           simp
@@ -682,14 +682,14 @@ theorem SpVSpV_correct_triple (out: Array Int) (spv1 spv2: SpV Int) (n: ℕ):
   triple
     ((∀ i < spv1.size, spv1.ind[i]! < n) ∧ (∀ i < spv2.size, spv2.ind[i]! < n))
     (SpVSpV out spv1 spv2)
-    fun ⟨_, ⟨outNew, PUnit.unit⟩⟩ =>
+    fun ⟨_, outNew⟩ =>
       outNew[0]! = ∑ i ∈ Finset.range n, spv1[i]! * spv2[i]! := by
       simp [triple]
       intro b1 b2
       apply wp_cons (SpVSpV out spv1 spv2)
-        fun ⟨_, ⟨outNew, PUnit.unit⟩⟩ =>
+        fun ⟨_, outNew⟩ =>
           outNew[0]! = spv_dot spv1 spv2 0 0 ∧ outNew.size = 1
-      { rintro ⟨_, ⟨outNew, PUnit.unit⟩⟩; simp
+      { rintro outNew; simp
         intro sum_eq sz_eq
         simp [sum_eq]
         exact spv_dot_pure spv1 spv2 n b1 b2 }
@@ -708,14 +708,14 @@ theorem SpMSpV_correct_triple
   triple
     (∀ i < spm.size, (∀ j < spm[i]!.size, spm[i]!.ind[j]! < n) ∧ (∀ j < spv.size, spv.ind[j]! < n))
     (SpMSpV out spm spv)
-    fun ⟨_, ⟨outNew, _⟩⟩ =>
+    fun ⟨_, outNew⟩ =>
       outNew.size = spm.size ∧ ∀ i < spm.size, outNew[i]! = ∑ idx ∈ Finset.range n, spm[i]![idx]! * spv[idx]! := by
         simp [triple]
         intro inb
         apply wp_cons (SpMSpV out spm spv)
-          fun ⟨_, ⟨outNew, _⟩⟩ =>
+          fun ⟨_, outNew⟩ =>
             (∀ i < spm.size, outNew[i]! = spv_dot spm[i]! spv 0 0) ∧ outNew.size = spm.size
-        { rintro ⟨_, ⟨outNew, _⟩⟩; simp
+        { rintro outNew; simp
           intro sum_eq sz_eq
           simp [sz_eq]
           intro i ib

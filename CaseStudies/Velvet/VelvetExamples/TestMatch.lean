@@ -28,7 +28,7 @@ method test1 (n : Nat) return (res : Nat)
     | .zero => pure 0
     | .succ k =>
       let b ← test1 k
-      pure (Nat.succ b.1)
+      pure (Nat.succ b)
 -- set_option trace.Loom.debug true in
 prove_correct test1 by
   loom_solve
@@ -54,7 +54,7 @@ method test2 (n : β) (l : List α) return (res : Nat)
     | [], _ => pure 0
     | _ :: k, _ =>
       let b ← test2 n k
-      pure b.1.succ
+      pure b.succ
 -- set_option trace.Loom.debug true in
 prove_correct test2
 decreasing_by

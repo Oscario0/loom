@@ -23,8 +23,8 @@ macro_rules
 open PartialCorrectness DemonicChoice in
 method insertionSort_part
   (mut arr: Array Int) return (u: Unit)
-  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arrNew[i]! ≤ arrNew[j]!
-  ensures arr.toMultiset = arrNew.toMultiset
+  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arr[i]! ≤ arr[j]!
+  ensures arr.toMultiset = arrOld.toMultiset
   do
     let arr₀ := arr
     let arr_size := arr.size
@@ -93,8 +93,8 @@ prove_correct insertionSort_termination by
 open TotalCorrectness DemonicChoice in
 method insertionSort_result
   (mut arr: Array Int) return (u: Unit)
-  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arrNew[i]! ≤ arrNew[j]!
-  ensures arr.toMultiset = arrNew.toMultiset
+  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arr[i]! ≤ arr[j]!
+  ensures arr.toMultiset = arrOld.toMultiset
   do
     let arr₀ := arr
     let arr_size := arr.size
@@ -117,11 +117,11 @@ method insertionSort_result
       return
 open TotalCorrectness DemonicChoice in
 prove_correct insertionSort_result by
-  have triple_termination := insertionSort_termination_correct arr
-  have triple_res := insertionSort_part_correct arr
+  have triple_termination := insertionSort_termination_correct arrOld
+  have triple_res := insertionSort_part_correct arrOld
   -- applying lemma about separation of termination proof and correctness proof
   exact VelvetM.total_decompose_triple
-    (insertionSort_termination arr) (insertionSort_part arr) (insertionSort_result arr)
+    (insertionSort_termination arrOld) (insertionSort_part arrOld) (insertionSort_result arrOld)
     (eqx := by rfl) (eqy := by rfl)
     triple_termination
     triple_res

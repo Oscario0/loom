@@ -22,7 +22,7 @@ method gcd (a : Nat) (b : Nat) return (res : Nat)
     else
       let remainder := a % b
       let result ← gcd b remainder
-      return result.1
+      return result
   termination_by b
   decreasing_by
     apply Nat.mod_lt

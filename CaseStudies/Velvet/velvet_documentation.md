@@ -510,9 +510,9 @@ method qsortPartition (mut arr: Array Int) (low: Nat) (high: Nat)
   return (pivotIndex: Nat)
 ```
 
-The modified array is automatically available as `arrNew` in postconditions:
+The old array value is automatically available as `arrOld` in postconditions:
 ```lean
-ensures arrNew[pivotIndex]! = arr[high]!
+ensures arr[pivotIndex]! = arrOld[high]!
 ```
 
 #### Compound Loop Conditions

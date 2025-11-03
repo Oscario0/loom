@@ -56,25 +56,23 @@ attribute [grind] Array.multiset_swap
 method insertionSort
   (mut arr: Array Int) return (u: Unit)
   require 1 ≤ arr.size
-  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arrNew[i]! ≤ arrNew[j]!
-  ensures arr.toMultiset = arrNew.toMultiset
+  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arr[i]! ≤ arr[j]!
+  ensures arr.toMultiset = arrOld.toMultiset
   do
-    let arr₀ := arr
-    let arr_size := arr.size
     let mut n := 1
     while n ≠ arr.size
-    invariant arr.size = arr_size
+    invariant arr.size = arrOld.size
     invariant 1 ≤ n ∧ n ≤ arr.size
     invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i]! ≤ arr[j]!
-    invariant arr.toMultiset = arr₀.toMultiset
+    invariant arr.toMultiset = arrOld.toMultiset
     done_with n = arr.size
     do
       let mut mind := n
       while mind ≠ 0
-      invariant arr.size = arr_size
+      invariant arr.size = arrOld.size
       invariant mind ≤ n
       invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i]! ≤ arr[j]!
-      invariant arr.toMultiset = arr₀.toMultiset
+      invariant arr.toMultiset = arrOld.toMultiset
       done_with mind = 0
       do
         if arr[mind]! < arr[mind - 1]! then
@@ -119,14 +117,13 @@ method sqrt (x: ℕ) return (res: ℕ)
   do
     if x = 0 then
       return 0
-    else
-      let mut i := 0
-      while i * i ≤ x
-      invariant ∀ j, j < i → j * j ≤ x
-      done_with x < i * i
-      do
-        i := i + 1
-      return i - 1
+    let mut i := 0
+    while i * i ≤ x
+    invariant ∀ j, j < i → j * j ≤ x
+    done_with x < i * i
+    do
+      i := i + 1
+    return i - 1
 
 set_option auto.smt.trust true
 set_option auto.smt true
