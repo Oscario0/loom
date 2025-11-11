@@ -13,7 +13,9 @@ import Loom.MonadAlgebras.WP.DoNames'
 
 import CaseStudies.Velvet.Std
 
-open TotalCorrectness DemonicChoice Lean.Elab.Term.DoNames
+set_option loom.semantics.termination "partial"
+set_option loom.semantics.choice "demonic"
+
 /-
 set_option auto.smt.trust true
 set_option auto.smt true

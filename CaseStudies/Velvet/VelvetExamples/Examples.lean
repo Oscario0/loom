@@ -11,7 +11,8 @@ import Loom.MonadAlgebras.WP.DoNames'
 import CaseStudies.Velvet.Std
 import CaseStudies.TestingUtil
 
-open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
+set_option loom.semantics.termination "partial"
+set_option loom.semantics.choice "demonic"
 
 section insertionSort
 

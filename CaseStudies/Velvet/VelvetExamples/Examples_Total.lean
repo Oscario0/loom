@@ -10,7 +10,8 @@ import Loom.MonadAlgebras.WP.DoNames'
 
 import CaseStudies.Velvet.Std
 
-open TotalCorrectness DemonicChoice Lean.Elab.Term.DoNames
+set_option loom.semantics.termination "total"
+set_option loom.semantics.choice "demonic"
 
 attribute [grind] Array.multiset_swap
 

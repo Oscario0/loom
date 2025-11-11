@@ -270,7 +270,10 @@ elab_rules : command
       for mutType in mutTypes do
         mutTypeProd <- `($mutType × $mutTypeProd)
       retType <- `($retType × $mutTypeProd)
+    /- We need Velvet methods to be elaborated in a modified `do`-notation.
+      For that we localy open the `DoNames` namespace which contains the extensioned `do`-notation. -/
     let defCmd <- `(command|
+      open Lean.Elab.Term.DoNames in
       set_option linter.unusedVariables false in
       def $name $bindersIdents* : VelvetM $retType:term := do $mods* $doSeq*
       $suf:suffix)
@@ -340,6 +343,37 @@ elab_rules : command
         $pre
         ($name $ids*)
         (fun $ret => $post) := by $proofSeq $suf:suffix)
+    let opts <- getOptions
+
+    /- We need to check the termination and choice semantics options before
+      stating the proof. -/
+    if opts.getString (defVal := "unspecified") `loom.semantics.choice = "unspecified" then
+      throwError "First, you need to specify the choice semantics using `set_option loom.semantics.choice <demonic/angelic>`"
+
+    if opts.getString (defVal := "unspecified") `loom.semantics.termination = "unspecified" then
+      throwError "First, you need to specify the termination semantics using `set_option loom.semantics.termination <partial/total>`"
+
+    /- Now, depending on the solver option, we will locally define the `loom_solver` tactic. -/
+    let solver := opts.getString (defVal := "grind") `loom.solver
+    let thmCmd <- match solver with
+      | "grind" =>
+        /- In case of `grind` solver, we need  to fetch the number of splits from the options first. -/
+        let splits := Lean.Syntax.mkNatLit <| (opts.getNat (defVal := 20) `loom.solver.grind.splits)
+        `(command|
+          macro_rules | `(tactic| loom_solver) => do `(tactic| try grind (splits := $splits)) in
+          $thmCmd)
+      | "custom" => pure thmCmd
+      | _ =>
+        /- This is the case of `cvc5` or `z3` solver. We also need to fetch the timeout from the options. -/
+        let timeout := Syntax.mkNatLit <| (opts.getNat (defVal := 1) `loom.solver.smt.timeout)
+        let solver := Syntax.mkStrLit <| (opts.getString (defVal := "cvc5") `loom.solver.smt.solver)
+        `(command|
+          set_option auto.smt.trust true in
+          set_option auto.smt true in
+          set_option auto.smt.solver.name $solver in
+          set_option auto.smt.timeout $timeout in
+          macro_rules | `(tactic| loom_solver) => do `(tactic| loom_auto) in
+          $thmCmd)
     trace[Loom] "{thmCmd}"
     Command.elabCommand thmCmd
     velvetObligations.modify (·.erase name.getId)

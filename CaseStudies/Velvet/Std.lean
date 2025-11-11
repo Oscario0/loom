@@ -7,14 +7,12 @@ import Mathlib.Algebra.Ring.Int.Defs
 
 import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
+import Loom.MonadAlgebras.WP.Options
 import Loom.MonadAlgebras.WP.DoNames'
 
 import CaseStudies.Extension
 import CaseStudies.Velvet.Syntax
 
-macro_rules
-  | `(tactic|loom_solver) =>
-    `(tactic|try grind (splits := 20))
 
 macro_rules
   | `(doElem|$id:ident[$idx:term] := $val:term) =>

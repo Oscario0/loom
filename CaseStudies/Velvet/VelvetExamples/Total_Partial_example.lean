@@ -11,16 +11,14 @@ import Loom.MonadAlgebras.WP.DoNames'
 
 import CaseStudies.Velvet.Std
 
-open Lean.Elab.Term.DoNames
-
 attribute [grind] Array.multiset_swap
 
-macro_rules
-  | `(tactic|loom_solver) =>
-    `(tactic|try grind (splits := 40))
+section
 
---we prove invariants in partial correctness
-open PartialCorrectness DemonicChoice in
+set_option loom.semantics.termination "partial"
+set_option loom.semantics.choice "demonic"
+set_option loom.solver.grind.splits 40
+
 method insertionSort_part
   (mut arr: Array Int) return (u: Unit)
   ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arr[i]! ≤ arr[j]!
@@ -53,12 +51,16 @@ method insertionSort_part
       return
 
 set_option maxHeartbeats 1000000 in
-open PartialCorrectness DemonicChoice in
 prove_correct insertionSort_part by
   loom_solve!
 
---we prove termination in total correctness
-open TotalCorrectness DemonicChoice in
+end
+
+section
+
+set_option loom.semantics.termination "total"
+set_option loom.semantics.choice "demonic"
+
 method insertionSort_termination
   (mut arr: Array Int) return (u: Unit)
   ensures True
@@ -85,12 +87,14 @@ method insertionSort_termination
           mind := mind - 1
         n := n + 1
       return
-open TotalCorrectness DemonicChoice in
+
 prove_correct insertionSort_termination by
   loom_solve!
+end
 
---we prove the postcondition just by combination of the two triples above
-open TotalCorrectness DemonicChoice in
+set_option loom.semantics.termination "total"
+set_option loom.semantics.choice "demonic"
+
 method insertionSort_result
   (mut arr: Array Int) return (u: Unit)
   ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arr[i]! ≤ arr[j]!
@@ -115,7 +119,7 @@ method insertionSort_result
           mind := mind - 1
         n := n + 1
       return
-open TotalCorrectness DemonicChoice in
+
 prove_correct insertionSort_result by
   have triple_termination := insertionSort_termination_correct arrOld
   have triple_res := insertionSort_part_correct arrOld
