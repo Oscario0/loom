@@ -73,7 +73,7 @@ elab_rules : tactic
       wpgen
       try simp only [loomWpSimp]
       try unfold spec
-      try simp only [invariants]
+      try simp only [invariantSeq]
       try simp only [WithName.mk']
       try simp only [WithName.erase]
       try simp only [typeWithName.erase]
@@ -151,17 +151,17 @@ elab "loom_solve?" : tactic => withMainContext do
   try simp only [$(mkIdent `loomAbstractionSimp):ident] at *
   wpgen
   try simp only [$(mkIdent `loomWpSimp):ident]
-  try simp only [$(mkIdent `WithName):ident]
-  try simp only [$(mkIdent `typeWithName):ident]
+  try simp only [$(mkIdent ``WithName):ident]
+  try simp only [$(mkIdent ``typeWithName):ident]
   try unfold spec
-  try simp only [$(mkIdent `invariants):ident]
-  try simp only [$(mkIdent `WithName.mk'):ident]
-  try simp only [$(mkIdent `WithName.erase):ident]
-  try simp only [$(mkIdent `typeWithName.erase):ident]
-  try simp only [$(mkIdent `List.foldr):ident]
+  try simp only [$(mkIdent ``invariantSeq):ident]
+  try simp only [$(mkIdent ``WithName.mk'):ident]
+  try simp only [$(mkIdent ``WithName.erase):ident]
+  try simp only [$(mkIdent ``typeWithName.erase):ident]
+  try simp only [$(mkIdent ``List.foldr):ident]
   try simp only [$(mkIdent `loomLogicSimp):ident]
   try simp only [$(mkIdent `simpMAlg):ident]
-  repeat' (apply $(mkIdent `And.intro) <;> (repeat loom_intro))
+  repeat' (apply $(mkIdent ``And.intro) <;> (repeat loom_intro))
   any_goals auto [$hints,*]
   ))
   Tactic.TryThis.addSuggestion (<-getRef) tac

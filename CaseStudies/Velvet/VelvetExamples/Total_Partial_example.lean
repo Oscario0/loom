@@ -95,6 +95,10 @@ end
 set_option loom.semantics.termination "total"
 set_option loom.semantics.choice "demonic"
 
+set_option loom.linter.errors false
+set_option loom.linter.warnings false
+
+
 method insertionSort_result
   (mut arr: Array Int) return (u: Unit)
   ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arr[i]! ≤ arr[j]!
@@ -107,13 +111,9 @@ method insertionSort_result
       return
     else
       let mut n := 1
-      while n ≠ arr.size
-      invariant True
-      do
+      while n ≠ arr.size do
         let mut mind := n
-        while mind ≠ 0
-        invariant True
-        do
+        while mind ≠ 0 do
           if arr[mind]! < arr[mind - 1]! then
             swap! arr[mind]! arr[mind - 1]!
           mind := mind - 1

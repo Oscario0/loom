@@ -164,3 +164,14 @@ elab_rules : command
     | `("angelic") => openScope <| `AngelicChoice
     | `("demonic") => openScope <| `DemonicChoice
     | _ => throwError "invalid value for loom.semantics.choice"
+
+
+register_option loom.linter.warnings : Bool := {
+  defValue := true
+  descr := "`(true/false)` Option to control whether to show warnings related to Loom programms annotations."
+}
+
+register_option loom.linter.errors : Bool := {
+  defValue := true
+  descr := "`(true/false)` Option to control whether to show errors related to Loom programms annotations."
+}
