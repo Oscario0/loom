@@ -69,7 +69,11 @@ syntax "method" ident leafny_binder* "return" "(" ident ":" term ")"
   (ensures_caluse)* "do" doSeq
   Termination.suffix : command
 
-syntax "prove_correct" ident Termination.suffix "by" tacticSeq : command
+declare_syntax_cat prove_correct_command
+syntax "prove_correct" : prove_correct_command
+syntax "prove_correct?" : prove_correct_command
+
+syntax prove_correct_command ident Termination.suffix "by" tacticSeq : command
 
 syntax (priority := high) ident noWs "[" term "]" ":=" term : doElem
 syntax (priority := high) ident noWs "[" term "]" "+=" term : doElem
@@ -321,7 +325,7 @@ lemma triple_test (arr: arrInt) :
 
 @[incremental]
 elab_rules : command
-  | `(command| prove_correct $name:ident $suf:suffix by%$tkp $proof:tacticSeq) => do
+  | `(command| $pv:prove_correct_command $name:ident $suf:suffix by%$tkp $proof:tacticSeq) => do
     let ctx <- velvetObligations.get
     let .some obligation := ctx[name.getId]? | throwError "no obligation found"
     let bindersIdents := obligation.binderIdents
@@ -331,15 +335,14 @@ elab_rules : command
     let pre ← liftCoreM <| addPreludeToPreCond obligation.pre obligation.modIds
     let post := obligation.post
     let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
-    -- let proof <- withRef tkp ``()
+    let triple <- `($(mkIdent ``triple))
     let proofSeq ← withRef tkp `(tacticSeq|
       unfold $name
       ($proof))
-
     let thmCmd <- withRef tkp `(command|
-      @[loomSpec]
+      @[$(mkIdent `loomSpec):ident]
       lemma $lemmaName $bindersIdents* :
-      triple
+      $triple
         $pre
         ($name $ids*)
         (fun $ret => $post) := by $proofSeq $suf:suffix)
@@ -360,22 +363,33 @@ elab_rules : command
         /- In case of `grind` solver, we need  to fetch the number of splits from the options first. -/
         let splits := Lean.Syntax.mkNatLit <| (opts.getNat (defVal := 20) `loom.solver.grind.splits)
         `(command|
-          macro_rules | `(tactic| loom_solver) => do `(tactic| try grind (splits := $splits)) in
+          macro_rules | `(tactic| loom_solver) => do
+          `(tactic| try grind ($(mkIdent `splits):ident := $splits)) in
           $thmCmd)
       | "custom" => pure thmCmd
       | _ =>
         /- This is the case of `cvc5` or `z3` solver. We also need to fetch the timeout from the options. -/
         let timeout := Syntax.mkNatLit <| (opts.getNat (defVal := 1) `loom.solver.smt.timeout)
         let solver := Syntax.mkStrLit <| (opts.getString (defVal := "cvc5") `loom.solver.smt.solver)
+        let autoSMTTrust := Lean.mkIdent `auto.smt.trust
+        let autoSMT := Lean.mkIdent `auto.smt
+        let autoSMTSolverName := Lean.mkIdent `auto.smt.solver.name
+        let autoSMTTimeout := Lean.mkIdent `auto.smt.timeout
         `(command|
-          set_option auto.smt.trust true in
-          set_option auto.smt true in
-          set_option auto.smt.solver.name $solver in
-          set_option auto.smt.timeout $timeout in
+          set_option $autoSMTTrust true in
+          set_option $autoSMT true in
+          set_option $autoSMTSolverName $solver in
+          set_option $autoSMTTimeout $timeout in
           macro_rules | `(tactic| loom_solver) => do `(tactic| loom_auto) in
           $thmCmd)
     trace[Loom] "{thmCmd}"
-    Command.elabCommand thmCmd
+    match pv with
+    | `(prove_correct_command| prove_correct) =>
+      Command.elabCommand thmCmd
+    | `(prove_correct_command| prove_correct?) =>
+      Command.liftTermElabM do
+        Tactic.TryThis.addSuggestion (<-getRef) thmCmd
+    | _ => throwError "unexpected proof command: {pv}"
     velvetObligations.modify (·.erase name.getId)
 
 set_option linter.unusedVariables false in
