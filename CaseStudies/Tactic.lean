@@ -166,3 +166,16 @@ elab "loom_solve?" : tactic => withMainContext do
   any_goals loom_smt [$hints,*]
   ))
   Tactic.TryThis.addSuggestion (<-getRef) tac
+
+elab_rules : tactic
+  | `(tactic| loom_solver) => withMainContext do
+    let opts <- getOptions
+    let solver := opts.getString (defVal := "grind") `loom.solver
+    match solver with
+      | "grind" =>
+        /- In case of `grind` solver, we need  to fetch the number of splits from the options first. -/
+        let splits := Lean.Syntax.mkNatLit <| (opts.getNat (defVal := 20) `loom.solver.grind.splits)
+        evalTactic $ <- `(tactic| try grind ($(mkIdent `splits):ident := $splits))
+      | "custom" =>
+        evalTactic $ <- `(tactic| fail "Custom solver is not specified")
+      | _ => evalTactic $ <- `(tactic| loom_auto)
