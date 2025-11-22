@@ -355,21 +355,6 @@ elab_rules : command
 
     if opts.getString (defVal := "unspecified") `loom.semantics.termination = "unspecified" then
       throwError "First, you need to specify the termination semantics using `set_option loom.semantics.termination <partial/total>`"
-
-    /- Now, depending on the solver option, we will locally define the `loom_solver` tactic. -/
-    -- let solver := opts.getString (defVal := "grind") `loom.solver
-    -- let thmCmd <- match solver with
-    --   | "grind" =>
-    --     /- In case of `grind` solver, we need  to fetch the number of splits from the options first. -/
-    --     let splits := Lean.Syntax.mkNatLit <| (opts.getNat (defVal := 20) `loom.solver.grind.splits)
-    --     `(command|
-    --       macro_rules | `(tactic| loom_solver) => do
-    --       `(tactic| try grind ($(mkIdent `splits):ident := $splits)) in
-    --       $thmCmd)
-    --   | "custom" => pure thmCmd
-    --   | _ =>
-    --     /- This is the case of `cvc5` or `z3` solver. We also need to fetch the timeout from the options. -/
-    --     `(command| macro_rules | `(tactic| loom_solver) => do `(tactic| loom_auto) in $thmCmd)
     trace[Loom] "{thmCmd}"
     match pv with
     | `(prove_correct_command| prove_correct) =>
