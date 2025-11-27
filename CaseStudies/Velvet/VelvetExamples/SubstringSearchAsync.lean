@@ -1,10 +1,11 @@
+import Auto
+import Lean
+
 import CaseStudies.Velvet.Std
 import CaseStudies.TestingUtil
 
 set_option loom.semantics.termination "total"
 set_option loom.semantics.choice "demonic"
-set_option loom.solver "cvc5"
-set_option loom.solver.smt.timeout 4
 
 --this will ne our answer type
 structure SubstringResult where
@@ -14,7 +15,7 @@ structure SubstringResult where
 deriving Repr, Inhabited
 
 --predicate for substring all characters of which satisfy the predicate
-@[grind, loomAbstractionSimp]
+@[grind]
 def CorrectSubstring (s : Array Char) (p : Char -> Bool) (l r : Nat) : Prop :=
   l ≤ r ∧ r < s.size ∧
   (∀ i, l ≤ i ∧ i ≤ r → p s[i]!)
@@ -76,7 +77,12 @@ do
       pnt := pnt + 1
     return ⟨l_ans, r_ans, ans > 0⟩
 
-#time
+/--
+warning: `loom_solve_async` uses sorry to admit all the solved goals for now, consider running `loom_solve` once proof is complete to get the proof term
+---
+warning: declaration uses 'sorry'
+-/
+#guard_msgs in
 prove_correct SubstringSearch by
   loom_solve_async
 

@@ -201,4 +201,3 @@ method pow2 (n: Nat) return (res: Nat)
 
 prove_correct pow2 by
   loom_solve
-  rw [if_pos]; rfl

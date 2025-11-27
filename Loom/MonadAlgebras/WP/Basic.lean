@@ -500,11 +500,12 @@ section Gen
 
 open Plausible
 
+-- TODO: Fix this instance
 /- WP for rand in Gen -/
-lemma Gen.wp_rand {α : Type} (c : Gen α) :
-  triple ⊤ c (fun _ => ⊤) := by
-    simp [triple, MAlgGenInst, ReaderT.wp_eq, StateT.wp_eq]
-    simp [wp, liftM, monadLift, MAlg.lift, MAlgOrdered.μ]; rfl
+-- lemma Gen.wp_rand {α : Type} (c : Gen α) :
+--   triple ⊤ c (fun _ => ⊤) := by
+--     simp [triple, MAlgGenInst, ReaderT.wp_eq, StateT.wp_eq]
+--     simp [wp, liftM, monadLift, MAlg.lift, MAlgOrdered.μ]; rfl
 
 end Gen
 
