@@ -159,7 +159,7 @@ def querySolver (goalQuery : String) (withTimeout : Nat) (forceSolver : Option S
   emitCommand solver .checkSat
   let stdout ← solver.stdout.getLine
   trace[loom.smt.debug] "[checkSat] stdout: {stdout}"
-  let (checkSatResponse, _) ← Auto.Solver.SMT.getSexp stdout
+  let (checkSatResponse, _) ← Auto.Solver.SMT.getTerm stdout
   match checkSatResponse with
   | .atom (.symb "sat") =>
     trace[loom.smt.result] "{solverName} says Sat"
@@ -169,9 +169,10 @@ def querySolver (goalQuery : String) (withTimeout : Nat) (forceSolver : Option S
     let stderr ← solver.stderr.readToEnd
     trace[loom.smt.debug] "stdout: {stdout}"
     trace[loom.smt.debug] "stderr: {stderr}"
-    let (model, _) ← Auto.Solver.SMT.getSexp stdout
+    -- FIXME: why does this break after the update to v4.25.2?
+    -- let (model, _) ← Auto.Solver.SMT.getTerm stdout
     solver.kill
-    return (SmtResult.Sat s!"{model}", solverName)
+    return (SmtResult.Sat .none, solverName)
 
   | .atom (.symb "unsat") =>
     trace[loom.smt.result] "{solverName} says Unsat"
